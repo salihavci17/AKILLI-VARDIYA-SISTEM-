@@ -1,0 +1,190 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: white;
+    margin-bottom: 30px;
+    font-size: 2em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.kart {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.3em;
+}
+
+.ornek {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 15px;
+    background: #f0f0f0;
+    padding: 8px;
+    border-radius: 5px;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    transition: transform 0.2s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+}
+
+.personel-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.personel-badge.kadin {
+    background: linear-gradient(135deg, #e84393 0%, #d63031 100%);
+}
+
+.personel-badge button {
+    background: rgba(255,255,255,0.3);
+    width: auto;
+    padding: 2px 8px;
+    font-size: 12px;
+    margin: 0;
+}
+
+.personel-badge button:hover {
+    background: rgba(255,0,0,0.8);
+    transform: none;
+}
+
+#takvim {
+    margin: 20px 0;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+th, td {
+    padding: 8px 4px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+
+th {
+    background: #2d3436;
+    color: white;
+    font-weight: bold;
+}
+
+td {
+    vertical-align: middle;
+}
+
+.personel-satiri:hover {
+    background: #f5f5f5;
+}
+
+.vardiya-hucresi {
+    font-weight: bold;
+}
+
+.sabah { background-color: #ffeaa7 !important; color: #d63031; }
+.aksam { background-color: #fab1a0 !important; color: #e17055; }
+.gece { background-color: #74b9ff !important; color: #0984e3; }
+.izin { background-color: #55efc4 !important; color: #00b894; }
+
+.legend {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px solid #eee;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.legend-renk {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+.uyari {
+    font-size: 13px;
+}
+
+.kontrol-hatasi {
+    background: #ff7675;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.kontrol-basarili {
+    background: #00b894;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    font-weight: bold;
+}

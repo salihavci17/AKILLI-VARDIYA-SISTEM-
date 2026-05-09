@@ -103,59 +103,94 @@ function vardiyaOlusturYeni(gunAdet, baslangic) {
     let vardiyalar = [];
     let erkekler = getErkekler();
     let kadinlar = getKadinlar();
+    let tumPersonel = personeller.map(p => p.isim);
     
-    let geceIndex = 0;
-    let sabahIndex = 0;
+    // Her gün için döngüsel kaydırma (izinlilerin değişmesi için)
+    let kaydirma = 0;
     
     for (let gun = 0; gun < gunAdet; gun++) {
         let tarih = new Date(baslangic);
         tarih.setDate(baslangic.getDate() + gun);
         let haftasonu = (tarih.getDay() === 0 || tarih.getDay() === 6);
         
-        let izinliler = personeller.filter(p => izinKontrol(p.isim, tarih)).map(p => p.isim);
+        // 1. İzinlileri (normal izin + pazartesi kuralı) hesapla
+        let izinliNormal = personeller.filter(p => izinKontrol(p.isim, tarih)).map(p => p.isim);
         let kuralIzinliler = personeller.filter(p => {
             for (let k of kurallar) {
                 if (k.tip === "personel" && k.personel === p.isim && k.kural === "pazartesi_izin" && tarih.getDay() === 1) return true;
             }
             return false;
         }).map(p => p.isim);
-        let tumIzinliler = [...new Set([...izinliler, ...kuralIzinliler])];
+        let sabitIzinliler = [...new Set([...izinliNormal, ...kuralIzinliler])];
         
-        let musaitErkekler = erkekler.filter(e => !tumIzinliler.includes(e) && yetkinlikKontrol(e, "gece") && kuralKontrol(e, "gece", tarih));
+        // 2. Gece vardiyası için uygun erkekler (sabit izinliler hariç, kurallara uygun)
+        let musaitErkekler = erkekler.filter(e =>
+            !sabitIzinliler.includes(e) &&
+            yetkinlikKontrol(e, "gece") &&
+            kuralKontrol(e, "gece", tarih)
+        );
         
-        // Gece vardiyası (2 erkek)
+        if (musaitErkekler.length < 2) {
+            alert(`Gece için yeterli erkek yok: ${tarih.toLocaleDateString('tr-TR')}`);
+            return null;
+        }
+        
+        // 3. Gece vardiyasını seç (2 erkek, döngüsel)
         let gece = [];
-        if (musaitErkekler.length >= 2) {
-            for (let i = 0; i < 2; i++) {
-                let idx = (geceIndex + i) % musaitErkekler.length;
-                gece.push(musaitErkekler[idx]);
-            }
-            geceIndex = (geceIndex + 2) % musaitErkekler.length;
+        let geciciIndex = (gun * 2 + kaydirma) % musaitErkekler.length;
+        for (let i = 0; i < 2; i++) {
+            gece.push(musaitErkekler[(geciciIndex + i) % musaitErkekler.length]);
         }
         
-        let kalanlar = personeller.filter(p => !tumIzinliler.includes(p.isim) && !gece.includes(p.isim)).map(p => p.isim);
-        let kalanErkekler = kalanlar.filter(p => erkekler.includes(p));
-        let kalanKadinlar = kalanlar.filter(p => kadinlar.includes(p));
+        // 4. Geceye gidenler ve sabit izinliler dışında kalan tüm personel (çalışabilecekler)
+        let calisabilecekler = tumPersonel.filter(p =>
+            !sabitIzinliler.includes(p) && !gece.includes(p)
+        );
         
-        // Sabah vardiyası (3 kişi, max 2 kadın)
+        // 5. Sabah ve akşam için toplam 6 kişi seçilecek. Kalanlar izinli olacak.
+        let toplamIhtiyac = 6; // sabah + akşam
+        if (calisabilecekler.length < toplamIhtiyac) {
+            alert(`Yeterli personel yok: ${tarih.toLocaleDateString('tr-TR')}`);
+            return null;
+        }
+        
+        // Seçim için sıralı bir liste yapalım (döngüsel)
+        let siraliListe = [...calisabilecekler];
+        let kayma = (gun * 3 + kaydirma) % siraliListe.length;
+        siraliListe = [...siraliListe.slice(kayma), ...siraliListe.slice(0, kayma)];
+        
+        // 6. Önce kadınları sabah ve akşama dağıt (max 2 kadın/vardiya)
+        let secilenler = [];
+        let kalanKadinlar = siraliListe.filter(p => kadinlar.includes(p));
+        let kalanErkekler = siraliListe.filter(p => erkekler.includes(p));
+        
+        // Sabah vardiyasına kadın seçimi (max 2)
         let sabah = [];
-        let alinacakKadin = Math.min(2, kalanKadinlar.length, 3);
-        for (let i = 0; i < alinacakKadin; i++) {
-            let idx = (sabahIndex + i) % kalanKadinlar.length;
-            sabah.push(kalanKadinlar[idx]);
+        let alinacakKadinSabah = Math.min(2, kalanKadinlar.length);
+        for (let i = 0; i < alinacakKadinSabah; i++) {
+            sabah.push(kalanKadinlar[i]);
         }
-        let kalanKont = 3 - sabah.length;
-        for (let i = 0; i < kalanKont; i++) {
+        // Sabah vardiyasını erkeklerle tamamla (3 kişi olana kadar)
+        let kalanSabahKont = 3 - sabah.length;
+        for (let i = 0; i < kalanSabahKont; i++) {
             if (kalanErkekler.length === 0) break;
-            let idx = (sabahIndex + i) % kalanErkekler.length;
-            sabah.push(kalanErkekler[idx]);
+            sabah.push(kalanErkekler[i]);
         }
-        sabahIndex = (sabahIndex + 3) % (kalanErkekler.length + kalanKadinlar.length || 1);
+        secilenler.push(...sabah);
         
-        // Akşam vardiyası (kalanlar)
-        let aksam = kalanlar.filter(p => !sabah.includes(p));
+        // Akşam vardiyası için kalan kadın/erkeklerden 3 kişi seç
+        let kalanlar = siraliListe.filter(p => !secilenler.includes(p));
+        let aksam = kalanlar.slice(0, 3);
+        secilenler.push(...aksam);
+        
+        // Geriye kalanlar (secilenler listesinde olmayanlar) izinli olacak
+        let dinlenenler = calisabilecekler.filter(p => !secilenler.includes(p));
+        let tumIzinliler = [...new Set([...sabitIzinliler, ...dinlenenler])];
+        
+        // Eğer aksam vardiyasında 3 kadın varsa (kural ihlali), düzelt
         let aksamKadin = aksam.filter(p => kadinlar.includes(p)).length;
         if (aksamKadin > 2) {
+            // Akşamdaki fazla kadınları sabah ile değiştir
             let fazla = aksamKadin - 2;
             for (let i = 0; i < fazla; i++) {
                 let aksamKadini = aksam.find(p => kadinlar.includes(p));
@@ -165,14 +200,29 @@ function vardiyaOlusturYeni(gunAdet, baslangic) {
                     sabah = sabah.filter(p => p !== sabahErkegi);
                     aksam.push(sabahErkegi);
                     sabah.push(aksamKadini);
+                    // secilenler listesini de güncelle
+                    secilenler = [...sabah, ...aksam];
+                    dinlenenler = calisabilecekler.filter(p => !secilenler.includes(p));
+                    tumIzinliler = [...new Set([...sabitIzinliler, ...dinlenenler])];
                 }
             }
         }
         
+        // Son kontroller: her vardiya 3 kişi mi?
         while (sabah.length < 3 && aksam.length > 3) sabah.push(aksam.pop());
         while (aksam.length < 3 && sabah.length > 3) aksam.push(sabah.pop());
         
-        vardiyalar.push({ tarih, gece, sabah, aksam, izinli: tumIzinliler, haftasonu });
+        vardiyalar.push({
+            tarih: new Date(tarih),
+            gece: gece,
+            sabah: sabah,
+            aksam: aksam,
+            izinli: tumIzinliler,
+            haftasonu: haftasonu
+        });
+        
+        // Her gün kaydırmayı artır ki izinliler değişsin (eşit dağılım için)
+        kaydirma = (kaydirma + 1) % tumPersonel.length;
     }
     return vardiyalar;
 }

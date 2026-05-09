@@ -5,10 +5,9 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 20px;
+    font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+    background: #eef2f7;
+    padding: 24px;
 }
 
 .container {
@@ -16,175 +15,365 @@ body {
     margin: 0 auto;
 }
 
-h1 {
-    text-align: center;
-    color: white;
-    margin-bottom: 30px;
-    font-size: 2em;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+.header-card, .kart {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
 }
 
-.kart {
-    background: white;
-    border-radius: 15px;
-    padding: 25px;
-    margin-bottom: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+h1 {
+    color: #1e466e;
+    margin-bottom: 4px;
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    font-size: 13px;
+    background: #2c7a4d;
+    color: white;
+    padding: 4px 14px;
+    border-radius: 40px;
+}
+
+.subtitle {
+    color: #5a6e7c;
+    margin-top: 8px;
+    font-size: 14px;
+    border-left: 3px solid #2c7a4d;
+    padding-left: 14px;
 }
 
 h2 {
-    color: #333;
-    margin-bottom: 10px;
-    font-size: 1.3em;
+    color: #1e466e;
+    font-size: 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid #2c7a4d;
+    padding-left: 14px;
 }
 
-.ornek {
-    color: #666;
-    font-size: 0.9em;
-    margin-bottom: 15px;
-    background: #f0f0f0;
-    padding: 8px;
-    border-radius: 5px;
+.kurallar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+    background: #f8fafc;
+    padding: 18px;
+    border-radius: 18px;
+}
+
+.form-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+
+.form-field {
+    flex: 1;
+    min-width: 130px;
+}
+
+label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2c4c6e;
+    display: block;
+    margin-bottom: 4px;
 }
 
 input, select {
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    font-size: 14px;
+    background: white;
     width: 100%;
-    padding: 12px;
-    font-size: 16px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    margin-bottom: 15px;
 }
 
 input:focus, select:focus {
+    border-color: #2c7a4d;
     outline: none;
-    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(44,122,77,0.2);
 }
 
 button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #1e466e;
     color: white;
     border: none;
-    padding: 12px 25px;
-    font-size: 16px;
-    border-radius: 8px;
+    padding: 10px 20px;
+    border-radius: 40px;
     cursor: pointer;
-    width: 100%;
-    transition: transform 0.2s;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.2s;
 }
 
 button:hover {
-    transform: translateY(-2px);
+    background: #0f3150;
+    transform: translateY(-1px);
 }
 
-.personel-badge {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 8px 15px;
-    border-radius: 20px;
+.btn-primary {
+    background: #2c7a4d;
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 15px;
+}
+
+.btn-secondary {
+    background: #e67e22;
+}
+.btn-secondary:hover {
+    background: #d35400;
+}
+.btn-edit {
+    background: #f39c12;
+}
+.btn-edit:hover {
+    background: #e67e22;
+}
+.btn-save {
+    background: #2c7a4d;
+}
+.btn-cancel {
+    background: #7f8c8d;
+}
+.btn-excel {
+    background: #27ae60;
+}
+.btn-whatsapp {
+    background: #25D366;
+}
+.btn-print {
+    background: #34495e;
+}
+
+.personel-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.personel-card {
+    background: #f1f5f9;
+    border-radius: 40px;
+    padding: 6px 14px 6px 18px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     font-size: 14px;
+    font-weight: 500;
 }
 
-.personel-badge.kadin {
-    background: linear-gradient(135deg, #e84393 0%, #d63031 100%);
+.personel-card.erkek {
+    background: #d4e6f1;
+    border-left: 5px solid #2980b9;
 }
-
-.personel-badge button {
-    background: rgba(255,255,255,0.3);
-    width: auto;
+.personel-card.kadin {
+    background: #f5d6e8;
+    border-left: 5px solid #e84393;
+}
+.personel-card button {
+    background: #cbd5e1;
+    color: #1f3a4b;
     padding: 2px 8px;
     font-size: 12px;
-    margin: 0;
+    border-radius: 30px;
+}
+.personel-card button:hover {
+    background: #b91c1c;
+    color: white;
 }
 
-.personel-badge button:hover {
-    background: rgba(255,0,0,0.8);
-    transform: none;
-}
-
-#takvim {
-    margin: 20px 0;
+.table-container {
     overflow-x: auto;
+    margin-top: 15px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
 }
 
-table {
+.vardiya-tablosu {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    background: white;
+    min-width: 900px;
 }
 
-th, td {
-    padding: 8px 4px;
-    text-align: center;
-    border: 1px solid #ddd;
-}
-
-th {
-    background: #2d3436;
+.vardiya-tablosu th {
+    background: #1e466e;
     color: white;
-    font-weight: bold;
+    padding: 12px 8px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid #2c5a7e;
 }
 
-td {
+.vardiya-tablosu td {
+    border: 1px solid #e2e8f0;
+    padding: 8px 6px;
     vertical-align: middle;
 }
 
-.personel-satiri:hover {
-    background: #f5f5f5;
+.tarih-hucre {
+    background: #f8fafc;
+    font-weight: 600;
+    white-space: nowrap;
 }
+.gece-hucre { background: #e6f7ff; }
+.sabah-hucre { background: #fff8e7; }
+.aksam-hucre { background: #feeef4; }
 
-.vardiya-hucresi {
-    font-weight: bold;
-}
-
-.sabah { background-color: #ffeaa7 !important; color: #d63031; }
-.aksam { background-color: #fab1a0 !important; color: #e17055; }
-.gece { background-color: #74b9ff !important; color: #0984e3; }
-.izin { background-color: #55efc4 !important; color: #00b894; }
-
-.legend {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 2px solid #eee;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+.personel-etiket {
+    display: inline-block;
+    background: #e2e8f0;
+    padding: 4px 10px;
+    border-radius: 30px;
+    margin: 2px;
     font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.1s;
+}
+.personel-etiket:hover {
+    background: #cbd5e1;
+    transform: scale(0.98);
+}
+.personel-etiket.erkek { background: #2980b9; color: white; }
+.personel-etiket.kadin { background: #e84393; color: white; }
+.personel-etiket.izin { background: #f1c40f; color: #2c3e50; }
+
+.personel-dropdown {
+    position: absolute;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    z-index: 2000;
+    max-height: 240px;
+    overflow-y: auto;
+    min-width: 140px;
+}
+.personel-dropdown div {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #edf2f7;
+}
+.personel-dropdown div:hover {
+    background: #eef2ff;
 }
 
-.legend-renk {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    background: #f9fafc;
+    padding: 12px 18px;
+    border-radius: 60px;
 }
 
+.btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.basarili {
+    background: #e3f7e8;
+    border-left: 5px solid #2c7a4d;
+    padding: 12px 16px;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
 .uyari {
+    background: #fff6e0;
+    border-left: 5px solid #f1c40f;
+    padding: 12px 16px;
+    border-radius: 16px;
+    margin-bottom: 20px;
     font-size: 13px;
 }
 
-.kontrol-hatasi {
-    background: #ff7675;
-    color: white;
-    padding: 10px;
-    border-radius: 5px;
-    margin-top: 10px;
-    font-weight: bold;
+.izin-listesi {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 8px;
+}
+.izin-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #edf2f7;
+}
+.istatistik {
+    background: #f1f9fe;
+    padding: 18px;
+    border-radius: 20px;
+    margin-top: 20px;
+}
+.istatistik-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+.footer {
+    text-align: center;
+    color: #4a627a;
+    font-size: 12px;
+    margin-top: 20px;
 }
 
-.kontrol-basarili {
-    background: #00b894;
-    color: white;
-    padding: 10px;
-    border-radius: 5px;
-    margin-top: 10px;
-    font-weight: bold;
+/* Yazdırma stili */
+@media print {
+    @page {
+        size: landscape;
+        margin: 1cm;
+    }
+    body { background: white; padding: 0; margin: 0; }
+    .toolbar, .btn-group, .footer, .personel-container, .form-row,
+    #izinListesi, #kuralListesi, .istatistik, .kart:not(:has(table)), #kontrolMesaji,
+    .header-card .badge, .header-card .subtitle {
+        display: none !important;
+    }
+    .header-card {
+        display: block !important;
+        background: none !important;
+        padding: 0 0 10px 0 !important;
+        text-align: center;
+    }
+    .header-card h1 {
+        font-size: 18px;
+        color: black;
+        justify-content: center;
+    }
+    .kart { padding: 0; margin: 0; box-shadow: none; background: white; }
+    .table-container { border: none; overflow: visible; }
+    .vardiya-tablosu { font-size: 10px; width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .vardiya-tablosu th, .vardiya-tablosu td { border: 1px solid #000 !important; padding: 4px; }
+    .gece-hucre, .sabah-hucre, .aksam-hucre, .tarih-hucre { background: none !important; }
+    .personel-etiket { background: none !important; color: black !important; padding: 0 !important; font-weight: normal; display: inline; border: none; }
+    .personel-etiket.erkek, .personel-etiket.kadin, .personel-etiket.izin { background: none !important; color: black !important; }
 }

@@ -3,797 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GÜZELEL PETROL A.Ş. - Akıllı Vardiya Sistemi</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f4f8;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .kart {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            color: #003366;
-            margin-bottom: 5px;
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #003366;
-        }
-
-        h2 {
-            color: #003366;
-            font-size: 18px;
-            margin-bottom: 15px;
-            border-left: 4px solid #003366;
-            padding-left: 12px;
-        }
-
-        h3 {
-            color: #0055a5;
-            font-size: 15px;
-            margin: 15px 0 10px 0;
-        }
-
-        .kurallar-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 8px;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-        }
-
-        .kural-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            padding: 5px;
-        }
-
-        .form-grup {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-        }
-
-        .form-grup input, .form-grup select {
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            background: white;
-        }
-
-        button {
-            background: #003366;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-
-        button:hover {
-            background: #002244;
-            transform: translateY(-1px);
-        }
-
-        .btn-excel {
-            background: #27ae60;
-        }
-
-        .btn-excel:hover {
-            background: #229954;
-        }
-
-        .btn-whatsapp {
-            background: #25D366;
-        }
-
-        .btn-whatsapp:hover {
-            background: #128C7E;
-        }
-
-        .btn-izin {
-            background: #e67e22;
-        }
-
-        .personel-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .personel-card {
-            background: #f0f0f0;
-            border-radius: 12px;
-            padding: 10px 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .personel-card.erkek {
-            background: #d4e6f1;
-            border-left: 4px solid #2980b9;
-        }
-
-        .personel-card.kadin {
-            background: #f5d6e8;
-            border-left: 4px solid #e84393;
-        }
-
-        .personel-card.izinli {
-            background: #f9e79f;
-            border-left: 4px solid #f1c40f;
-        }
-
-        .yetkinlik-badge {
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 12px;
-            background: #eee;
-        }
-
-        .tablo-wrapper {
-            overflow-x: auto;
-            margin-top: 15px;
-            background: white;
-            border-radius: 12px;
-        }
-
-        .vardiya-tablosu {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-            min-width: 600px;
-        }
-
-        .vardiya-tablosu th {
-            background: #003366;
-            color: white;
-            padding: 10px 6px;
-            border: 1px solid #1a4a7a;
-            text-align: center;
-        }
-
-        .vardiya-tablosu td {
-            border: 1px solid #ddd;
-            padding: 10px 6px;
-            vertical-align: top;
-        }
-
-        .tarih-hucre {
-            background: #f5f5f5;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        .gece-hucre {
-            background: #e3f2fd;
-        }
-
-        .sabah-hucre {
-            background: #fff8e1;
-        }
-
-        .aksam-hucre {
-            background: #fce4ec;
-        }
-
-        .personel-etiket {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 20px;
-            margin: 2px;
-            font-size: 11px;
-        }
-
-        .personel-etiket.erkek {
-            background: #2980b9;
-            color: white;
-        }
-
-        .personel-etiket.kadin {
-            background: #e84393;
-            color: white;
-        }
-
-        .uyari {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 13px;
-        }
-
-        .basarili {
-            background: #d4edda;
-            border-left: 4px solid #28a745;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 13px;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 15px;
-            background: #003366;
-            color: white;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-
-        .izin-listesi {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 10px;
-        }
-
-        .izin-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .btn-grup {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
-    </style>
+    <title>GÜZELEL PETROL A.Ş. - Kararlı Vardiya Sistemi</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
-    <div class="kart">
-        <h1>
-            ⛽ GÜZELEL PETROL A.Ş.
-            <span style="font-size: 14px; background: #003366; color: white; padding: 4px 12px; border-radius: 20px;">AKILLI VARDİYA SİSTEMİ</span>
-        </h1>
-        <div class="subtitle">Profesyonel Vardiya Planlama ve Yönetim Sistemi</div>
+    <div class="header-card">
+        <h1>⛽ GÜZELEL PETROL A.Ş. <span class="badge">KARARLI SİSTEM</span></h1>
+        <div class="subtitle">Değişikliklerde bozulma yok | Otomatik denge | LocalStorage</div>
     </div>
 
-    <!-- KURALLAR PANELİ -->
+    <!-- KURAL YÖNETİMİ -->
     <div class="kart">
-        <h2>📋 SİSTEM KURALLARI</h2>
-        <div class="kurallar-grid">
-            <div class="kural-item">✅ 1. Kadınlar gece çalışmaz</div>
-            <div class="kural-item">✅ 2. Kadınların hepsi tek vardiyada olamaz</div>
-            <div class="kural-item">✅ 3. Sabah 3, Akşam 3, Gece 2 personel</div>
-            <div class="kural-item">✅ 4. Personel yetersizse izin günü verilmez</div>
-            <div class="kural-item">✅ 5. Personel yetkinliğine göre vardiya ayarlanabilir</div>
-            <div class="kural-item">✅ 6. Vardiyalar arasında çift vardiya çalışabilir</div>
-            <div class="kural-item">✅ 7. Yıllık izin (hafta başı veya içinde)</div>
+        <h2>⚙️ KURAL YÖNETİMİ</h2>
+        <div class="form-row">
+            <div class="form-field">
+                <label>Kural Tipi</label>
+                <select id="kuralTipi">
+                    <option value="genel">Genel Kural</option>
+                    <option value="personel">Personel Özel Kural</option>
+                </select>
+            </div>
+            <div class="form-field" id="personelSecimDiv" style="display:none;">
+                <label>Personel</label>
+                <select id="kuralPersonel"></select>
+            </div>
+            <div class="form-field">
+                <label>Kural</label>
+                <select id="kuralAdi">
+                    <option value="sadece_sabah">Sadece sabah çalışsın</option>
+                    <option value="sadece_aksam">Sadece akşam çalışsın</option>
+                    <option value="sadece_gece">Sadece gece çalışsın</option>
+                    <option value="gece_yasak">Gece çalışmasın</option>
+                    <option value="haftasonu_gece_yasak">Hafta sonu gece çalışmasın</option>
+                    <option value="pazartesi_izin">Pazartesi günü izinli</option>
+                </select>
+            </div>
+            <button id="kuralEkleBtn" class="btn-secondary">➕ Kural Ekle</button>
+        </div>
+        <div id="kuralListesi" class="izin-listesi"></div>
+        <div class="uyari" style="margin-top:8px;">
+            💡 Kurallar vardiya oluşturulurken otomatik uygulanır. 
+            "Sadece sabah" gibi kurallar personelin o vardiya dışında çalışmasını engeller.
         </div>
     </div>
 
-    <!-- PERSONEL YÖNETİMİ -->
     <div class="kart">
         <h2>👥 PERSONEL YÖNETİMİ</h2>
-        
-        <div class="form-grup">
-            <input type="text" id="yeniIsim" placeholder="Personel adı" style="flex:2;">
-            <select id="yeniCinsiyet" style="flex:1;">
+        <div class="form-row">
+            <input type="text" id="yeniIsim" placeholder="Personel adı">
+            <select id="yeniCinsiyet">
                 <option value="E">Erkek 👨</option>
                 <option value="K">Kadın 👩</option>
             </select>
-            <select id="yeniYetkinlik" style="flex:1;">
+            <select id="yeniYetkinlik">
                 <option value="hepsi">Tüm Vardiyalar</option>
                 <option value="sabah_aksam">Sabah+Akşam</option>
                 <option value="sadece_sabah">Sadece Sabah</option>
                 <option value="sadece_aksam">Sadece Akşam</option>
                 <option value="sadece_gece">Sadece Gece</option>
             </select>
-            <button id="ekleBtn">➕ Personel Ekle</button>
+            <button id="ekleBtn">➕ Ekle</button>
         </div>
-
         <div id="personelListesi" class="personel-container"></div>
     </div>
 
-    <!-- İZİN YÖNETİMİ -->
     <div class="kart">
-        <h2>🏖️ YILLIK İZİN YÖNETİMİ</h2>
-        <div class="form-grup">
-            <select id="izinPersonel">
-                <option value="">Personel seçin</option>
-            </select>
+        <h2>🏖️ YILLIK İZİN (Tarih aralığı)</h2>
+        <div class="form-row">
+            <select id="izinPersonel"></select>
             <input type="date" id="izinBaslangic">
             <input type="date" id="izinBitis">
-            <button id="izinEkleBtn" class="btn-izin">📅 İzin Ekle</button>
+            <button id="izinEkleBtn" class="btn-secondary">📅 İzin Ekle</button>
         </div>
         <div id="izinListesi" class="izin-listesi"></div>
     </div>
 
-    <!-- TAKVİM AYARLARI -->
     <div class="kart">
-        <h2>📅 TAKVİM OLUŞTUR</h2>
-        <div class="form-grup">
-            <div style="flex:1;">
-                <label>Başlangıç Tarihi:</label>
-                <input type="date" id="baslangicTarihi" style="width:100%;">
+        <h2>📅 TAKVİM AYARLARI</h2>
+        <div class="form-row">
+            <div class="form-field">
+                <label>Başlangıç Tarihi</label>
+                <input type="date" id="baslangicTarihi">
             </div>
-            <div style="flex:1;">
-                <label>Gün Sayısı:</label>
-                <input type="number" id="gunSayisi" value="14" min="1" max="90" style="width:100%;">
+            <div class="form-field">
+                <label>Gün Sayısı</label>
+                <input type="number" id="gunSayisi" value="14" min="1" max="90">
             </div>
-            <div style="flex:1;">
-                <label>Çift Vardiya Aktif:</label>
-                <select id="ciftVardiyaAktif" style="width:100%;">
-                    <option value="evet">Evet (personel çift vardiya çalışabilir)</option>
-                    <option value="hayir">Hayır</option>
+            <div class="form-field">
+                <label>Hafızayı Kullan</label>
+                <select id="hafizaKullan">
+                    <option value="evet">Evet (önceki vardiyalara göre)</option>
+                    <option value="hayir">Hayır (sıfırla)</option>
                 </select>
             </div>
         </div>
-        <button id="takvimOlusturBtn">🎯 VARDİYA TAKVİMİNİ OLUŞTUR</button>
+        <button id="takvimOlusturBtn" class="btn-primary">🎯 VARDİYA OLUŞTUR</button>
     </div>
 
-    <!-- VARDİYA TABLOSU -->
     <div class="kart" id="tabloKarti" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <h2>📊 VARDİYA TABLOSU</h2>
-            <div class="btn-grup">
-                <button id="excelIndirBtn" class="btn-excel">📊 Excel (XLSX) İndir</button>
+        <div class="toolbar">
+            <span id="durumText">📋 Görüntüleme Modu</span>
+            <div class="btn-group">
+                <button id="duzenleBtn" class="btn-edit">✏️ Düzenleme Modu</button>
+                <button id="kaydetBtn" class="btn-save" style="display:none">💾 Değişiklikleri Onayla</button>
+                <button id="iptalBtn" class="btn-cancel" style="display:none">❌ İptal Et</button>
+                <button id="excelIndirBtn" class="btn-excel">📊 Excel (XLSX)</button>
                 <button id="whatsappBtn" class="btn-whatsapp">📱 WhatsApp ile Paylaş</button>
-                <button id="txtIndirBtn">📄 TXT İndir</button>
+                <button id="printBtn" class="btn-print">🖨️ Yazdır / PDF</button>
             </div>
         </div>
         <div id="kontrolMesaji"></div>
-        <div id="tabloAlan" class="tablo-wrapper"></div>
+        <div id="tabloAlan" class="table-container"></div>
+        <div id="istatistikAlan" class="istatistik" style="display: none;"></div>
     </div>
 
     <div class="footer">
-        ⛽ GÜZELEL PETROL A.Ş. | Akıllı Vardiya Planlama Sistemi | Tüm hakları saklıdır.
+        GÜZELEL PETROL A.Ş. | Kararlı Sistem | LocalStorage ile kalıcı veri
     </div>
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<script>
-    // ============ PERSONEL LİSTESİ ============
-    let personeller = [
-        { isim: "GARİP", cinsiyet: "E", yetkinlik: "hepsi" },
-        { isim: "SİNAN", cinsiyet: "E", yetkinlik: "hepsi" },
-        { isim: "SABRİ", cinsiyet: "E", yetkinlik: "hepsi" },
-        { isim: "ALİ", cinsiyet: "E", yetkinlik: "hepsi" },
-        { isim: "OKAN", cinsiyet: "E", yetkinlik: "hepsi" },
-        { isim: "GÜLCAN", cinsiyet: "K", yetkinlik: "hepsi" },
-        { isim: "ÖZLEM", cinsiyet: "K", yetkinlik: "hepsi" },
-        { isim: "NESİBE", cinsiyet: "K", yetkinlik: "hepsi" }
-    ];
-
-    let izinler = [];
-
-    function yetkinlikKontrol(personel, vardiya) {
-        if (personel.yetkinlik === "hepsi") return true;
-        if (vardiya === "gece" && personel.cinsiyet === "K") return false;
-        if (personel.yetkinlik === "sabah_aksam" && (vardiya === "sabah" || vardiya === "aksam")) return true;
-        if (personel.yetkinlik === "sadece_sabah" && vardiya === "sabah") return true;
-        if (personel.yetkinlik === "sadece_aksam" && vardiya === "aksam") return true;
-        if (personel.yetkinlik === "sadece_gece" && vardiya === "gece" && personel.cinsiyet === "E") return true;
-        return false;
-    }
-
-    function izinKontrol(personel, tarih) {
-        for (let izin of izinler) {
-            if (izin.personel !== personel.isim) continue;
-            let izinBas = new Date(izin.baslangic);
-            let izinBit = new Date(izin.bitis);
-            if (tarih >= izinBas && tarih <= izinBit) return true;
-        }
-        return false;
-    }
-
-    function kadinDagilimKontrol(vardiyalar) {
-        for (let vardiya of ["sabah", "aksam"]) {
-            let kadinSayisi = 0;
-            for (let p of vardiyalar[vardiya]) {
-                let personel = personeller.find(per => per.isim === p);
-                if (personel && personel.cinsiyet === "K") kadinSayisi++;
-            }
-            if (kadinSayisi === 3) return false;
-        }
-        return true;
-    }
-
-    function vardiyaOlustur(gunSayisi, baslangic, ciftVardiyaAktif) {
-        let erkekler = personeller.filter(p => p.cinsiyet === "E");
-        let kadinlar = personeller.filter(p => p.cinsiyet === "K");
-        
-        if (erkekler.length < 2) {
-            alert("Gece vardiyası için en az 2 erkek personel gerekli!");
-            return null;
-        }
-
-        let vardiyalar = [];
-        let oncekiGunVardiyalar = null;
-        
-        for (let gun = 0; gun < gunSayisi; gun++) {
-            let tarih = new Date(baslangic);
-            tarih.setDate(baslangic.getDate() + gun);
-            
-            let izinliPersoneller = personeller.filter(p => izinKontrol(p, tarih)).map(p => p.isim);
-            let musaitErkekler = erkekler.filter(e => !izinliPersoneller.includes(e.isim));
-            let musaitKadinlar = kadinlar.filter(k => !izinliPersoneller.includes(k.isim));
-            
-            let geceListe = [];
-            for (let i = 0; i < 2 && i < musaitErkekler.length; i++) {
-                let index = (gun + i) % musaitErkekler.length;
-                geceListe.push(musaitErkekler[index].isim);
-            }
-            
-            let kalanlar = personeller.filter(p => !izinliPersoneller.includes(p.isim) && !geceListe.includes(p.isim));
-            
-            let sabahListe = [];
-            for (let i = 0; i < 3 && i < kalanlar.length; i++) {
-                let index = (gun * 2 + i) % kalanlar.length;
-                sabahListe.push(kalanlar[index].isim);
-            }
-            
-            let aksamListe = kalanlar.filter(p => !sabahListe.includes(p.isim)).slice(0, 3).map(p => p.isim);
-            
-            if (ciftVardiyaAktif === "evet" && oncekiGunVardiyalar) {
-                let oncekiGece = oncekiGunVardiyalar.gece;
-                for (let p of oncekiGece) {
-                    if (!izinliPersoneller.includes(p) && !geceListe.includes(p) && !sabahListe.includes(p) && !aksamListe.includes(p)) {
-                        if (sabahListe.length < 3) sabahListe.push(p);
-                        else if (aksamListe.length < 3) aksamListe.push(p);
-                    }
-                }
-            }
-            
-            let denemeSayisi = 0;
-            while (!kadinDagilimKontrol({ gece: geceListe, sabah: sabahListe, aksam: aksamListe }) && denemeSayisi < 10) {
-                for (let vardiya of ["sabah", "aksam"]) {
-                    let liste = vardiya === "sabah" ? sabahListe : aksamListe;
-                    let kadinSayisi = liste.filter(p => kadinlar.some(k => k.isim === p)).length;
-                    if (kadinSayisi === 3) {
-                        let kadinIndex = liste.findIndex(p => kadinlar.some(k => k.isim === p));
-                        let hedefVardiya = vardiya === "sabah" ? aksamListe : sabahListe;
-                        let erkekIndex = hedefVardiya.findIndex(p => erkekler.some(e => e.isim === p));
-                        if (kadinIndex !== -1 && erkekIndex !== -1) {
-                            let kadin = liste[kadinIndex];
-                            let erkek = hedefVardiya[erkekIndex];
-                            liste[kadinIndex] = erkek;
-                            hedefVardiya[erkekIndex] = kadin;
-                        }
-                    }
-                }
-                denemeSayisi++;
-            }
-            
-            vardiyalar.push({
-                tarih: tarih,
-                gece: geceListe,
-                sabah: sabahListe,
-                aksam: aksamListe,
-                izinli: izinliPersoneller
-            });
-            
-            oncekiGunVardiyalar = { gece: geceListe, sabah: sabahListe, aksam: aksamListe };
-        }
-        
-        return vardiyalar;
-    }
-
-    function tabloyuGoster(vardiyalar) {
-        let html = `
-            <table class="vardiya-tablosu" id="vardiyaTablosu">
-                <thead>
-                    <tr>
-                        <th>TARİH / GÜN</th>
-                        <th>🌙 GECE (00:00-08:00)</th>
-                        <th>☀️ SABAH (08:00-16:00)</th>
-                        <th>🌆 AKŞAM (16:00-00:00)</th>
-                        <th>📌 İZİNLİLER</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        let hataliGun = 0;
-        
-        for (let v of vardiyalar) {
-            let tarih = v.tarih;
-            let gunAdi = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][tarih.getDay() === 0 ? 6 : tarih.getDay() - 1];
-            let tarihStr = `${tarih.getDate()} ${tarih.toLocaleString('tr', {month:'long'})} ${tarih.getFullYear()} ${gunAdi}`;
-            
-            let geceHata = v.gece.some(p => {
-                let per = personeller.find(x => x.isim === p);
-                return per && per.cinsiyet === 'K';
-            });
-            
-            let sabahKadin = v.sabah.filter(p => personeller.find(x => x.isim === p)?.cinsiyet === 'K').length;
-            let aksamKadin = v.aksam.filter(p => personeller.find(x => x.isim === p)?.cinsiyet === 'K').length;
-            
-            if (geceHata || sabahKadin === 3 || aksamKadin === 3 || v.sabah.length < 3 || v.aksam.length < 3 || v.gece.length < 2) hataliGun++;
-            
-            html += `
-                <tr>
-                    <td class="tarih-hucre"><strong>${tarihStr}</strong></td>
-                    <td class="gece-hucre">
-                        ${v.gece.map(p => `<span class="personel-etiket erkek">${p}</span>`).join('')}
-                        ${v.gece.length < 2 ? '<br><span style="color:red;">⚠️ Eksik</span>' : ''}
-                    </td>
-                    <td class="sabah-hucre">
-                        ${v.sabah.map(p => {
-                            let per = personeller.find(x => x.isim === p);
-                            return `<span class="personel-etiket ${per?.cinsiyet === 'E' ? 'erkek' : 'kadin'}">${p}</span>`;
-                        }).join('')}
-                        ${sabahKadin === 3 ? '<br><span style="color:orange;">⚠️ 3 kadın!</span>' : ''}
-                    </td>
-                    <td class="aksam-hucre">
-                        ${v.aksam.map(p => {
-                            let per = personeller.find(x => x.isim === p);
-                            return `<span class="personel-etiket ${per?.cinsiyet === 'E' ? 'erkek' : 'kadin'}">${p}</span>`;
-                        }).join('')}
-                        ${aksamKadin === 3 ? '<br><span style="color:orange;">⚠️ 3 kadın!</span>' : ''}
-                    </td>
-                    <td style="background:#f9e79f;">
-                        ${v.izinli.map(p => `<span class="personel-etiket" style="background:#f39c12;">${p}</span>`).join('')}
-                        ${v.izinli.length === 0 ? '—' : ''}
-                    </td>
-                </tr>
-            `;
-        }
-        
-        html += `</tbody>有些`;
-        
-        let kontrolMsg = hataliGun === 0 ? 
-            '<div class="basarili">✅ TÜM GÜNLER KURALLARA UYGUN!</div>' :
-            `<div class="uyari">⚠️ ${hataliGun} günde kural ihlali tespit edildi.</div>`;
-        
-        document.getElementById('kontrolMesaji').innerHTML = kontrolMsg;
-        document.getElementById('tabloAlan').innerHTML = html;
-    }
-
-    function takvimOlustur() {
-        let gunSayisi = parseInt(document.getElementById('gunSayisi').value);
-        let baslangicStr = document.getElementById('baslangicTarihi').value;
-        let baslangic = baslangicStr ? new Date(baslangicStr) : new Date();
-        let ciftVardiyaAktif = document.getElementById('ciftVardiyaAktif').value;
-        
-        let vardiyalar = vardiyaOlustur(gunSayisi, baslangic, ciftVardiyaAktif);
-        if (!vardiyalar) return;
-        
-        tabloyuGoster(vardiyalar);
-        window.sonVardiyalar = vardiyalar;
-        document.getElementById('tabloKarti').style.display = 'block';
-    }
-
-    function personelListesiniGoster() {
-        const container = document.getElementById('personelListesi');
-        if (personeller.length === 0) {
-            container.innerHTML = '<div class="uyari">⚠️ Henüz personel eklenmemiş.</div>';
-            return;
-        }
-        
-        container.innerHTML = personeller.map((p, idx) => `
-            <div class="personel-card ${p.cinsiyet === 'E' ? 'erkek' : 'kadin'}">
-                ${p.cinsiyet === 'E' ? '👨' : '👩'} <strong>${p.isim}</strong>
-                <span class="yetkinlik-badge">${p.yetkinlik === 'hepsi' ? 'Tüm Vardiyalar' : p.yetkinlik === 'sabah_aksam' ? 'Sabah+Akşam' : p.yetkinlik === 'sadece_sabah' ? 'Sadece Sabah' : p.yetkinlik === 'sadece_aksam' ? 'Sadece Akşam' : 'Sadece Gece'}</span>
-                <button onclick="personelSil(${idx})" style="background:none; margin:0;">✖</button>
-            </div>
-        `).join('');
-        
-        const izinSelect = document.getElementById('izinPersonel');
-        izinSelect.innerHTML = '<option value="">Personel seçin</option>' + 
-            personeller.map(p => `<option value="${p.isim}">${p.isim} (${p.cinsiyet === 'E' ? 'Erkek' : 'Kadın'})</option>`).join('');
-    }
-    
-    function izinListesiniGoster() {
-        const container = document.getElementById('izinListesi');
-        if (izinler.length === 0) {
-            container.innerHTML = '<span style="color:gray;">Henüz izin tanımlanmamış.</span>';
-            return;
-        }
-        
-        container.innerHTML = izinler.map((iz, idx) => `
-            <div class="izin-item">
-                <span><strong>${iz.personel}</strong> | ${new Date(iz.baslangic).toLocaleDateString('tr-TR')} - ${new Date(iz.bitis).toLocaleDateString('tr-TR')}</span>
-                <button onclick="izinSil(${idx})" style="background:#c0392b; padding:4px 12px; margin:0;">🗑️</button>
-            </div>
-        `).join('');
-    }
-    
-    window.personelSil = function(idx) {
-        if (confirm(`${personeller[idx].isim} silinsin mi?`)) {
-            personeller.splice(idx, 1);
-            personelListesiniGoster();
-            if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
-        }
-    };
-    
-    window.izinSil = function(idx) {
-        izinler.splice(idx, 1);
-        izinListesiniGoster();
-        if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
-    };
-    
-    function personelEkle() {
-        const isim = document.getElementById('yeniIsim').value.trim().toUpperCase();
-        const cinsiyet = document.getElementById('yeniCinsiyet').value;
-        const yetkinlik = document.getElementById('yeniYetkinlik').value;
-        
-        if (!isim) { alert('Personel adı girin!'); return; }
-        if (personeller.some(p => p.isim === isim)) { alert('Bu personel zaten var!'); return; }
-        
-        personeller.push({ isim, cinsiyet, yetkinlik });
-        document.getElementById('yeniIsim').value = '';
-        personelListesiniGoster();
-        if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
-    }
-    
-    function izinEkle() {
-        const personel = document.getElementById('izinPersonel').value;
-        const baslangic = document.getElementById('izinBaslangic').value;
-        const bitis = document.getElementById('izinBitis').value;
-        
-        if (!personel) { alert('Personel seçin!'); return; }
-        if (!baslangic || !bitis) { alert('İzin tarihlerini girin!'); return; }
-        
-        izinler.push({ personel, baslangic, bitis });
-        izinListesiniGoster();
-        document.getElementById('izinPersonel').value = '';
-        document.getElementById('izinBaslangic').value = '';
-        document.getElementById('izinBitis').value = '';
-        
-        if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
-    }
-    
-    // ============ EXCEL XLSX İNDİR (TABLO İLE BİREBİR) ============
-    function excelIndir() {
-        if (!window.sonVardiyalar) { alert('Önce takvim oluşturun!'); return; }
-        
-        // Excel verilerini hazırla - tablodaki gibi
-        let excelData = [];
-        
-        // Başlık satırları
-        excelData.push(['GÜZELEL PETROL A.Ş. VARDİYA ÇİZELGESİ']);
-        excelData.push([`Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}`]);
-        excelData.push([]);
-        excelData.push(['TARİH / GÜN', 'GECE (00:00-08:00)', 'SABAH (08:00-16:00)', 'AKŞAM (16:00-00:00)', 'İZİNLİLER']);
-        
-        // Veri satırları
-        for (let v of window.sonVardiyalar) {
-            let gunAdi = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][v.tarih.getDay() === 0 ? 6 : v.tarih.getDay() - 1];
-            let tarihStr = `${v.tarih.getDate()} ${v.tarih.toLocaleString('tr', {month:'long'})} ${v.tarih.getFullYear()} ${gunAdi}`;
-            
-            excelData.push([
-                tarihStr,
-                v.gece.join(', '),
-                v.sabah.join(', '),
-                v.aksam.join(', '),
-                v.izinli.join(', ')
-            ]);
-        }
-        
-        // Excel sayfası oluştur
-        const ws = XLSX.utils.aoa_to_sheet(excelData);
-        
-        // Sütun genişliklerini ayarla
-        ws['!cols'] = [
-            { wch: 30 },  // Tarih
-            { wch: 25 },  // Gece
-            { wch: 30 },  // Sabah
-            { wch: 30 },  // Akşam
-            { wch: 20 }   // İzinliler
-        ];
-        
-        // Workbook oluştur
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Vardiya Takvimi");
-        
-        // Excel dosyasını indir
-        XLSX.writeFile(wb, `GUZELEL_Vardiya_${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
-    
-    // ============ WHATSAPP İLE PAYLAŞ ============
-    async function whatsappPaylas() {
-        if (!window.sonVardiyalar) { alert('Önce takvim oluşturun!'); return; }
-        
-        const tabloElement = document.querySelector('#tabloAlan table');
-        if (!tabloElement) { alert('Tablo bulunamadı!'); return; }
-        
-        const canvas = await html2canvas(tabloElement, {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            logging: false
-        });
-        
-        canvas.toBlob(async (blob) => {
-            const file = new File([blob], 'vardiya_tablosu.png', { type: 'image/png' });
-            
-            const link = document.createElement('a');
-            link.download = 'GUZELEL_Vardiya_Tablosu.png';
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            
-            alert('✅ Tablo resmi hazır! Dosya bilgisayarınıza indirildi.\n\nWhatsApp\'tan göndermek için:\n1. WhatsApp\'ı açın\n2. Dosya gönderme butonuna tıklayın\n3. İndirilen resmi seçin');
-            
-            window.open('https://web.whatsapp.com/', '_blank');
-        }, 'image/png');
-    }
-    
-    function txtIndir() {
-        if (!window.sonVardiyalar) { alert('Önce takvim oluşturun!'); return; }
-        let icerik = "=".repeat(80) + "\n";
-        icerik += "                    GÜZELEL PETROL A.Ş. VARDİYA ÇİZELGESİ\n";
-        icerik += "=".repeat(80) + "\n\n";
-        
-        for (let v of window.sonVardiyalar) {
-            let gunAdi = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][v.tarih.getDay() === 0 ? 6 : v.tarih.getDay() - 1];
-            icerik += `📅 ${v.tarih.toLocaleDateString('tr-TR')} ${gunAdi}\n`;
-            icerik += `   🌙 GECE (00:00-08:00): ${v.gece.join(', ') || '—'}\n`;
-            icerik += `   ☀️ SABAH (08:00-16:00): ${v.sabah.join(', ') || '—'}\n`;
-            icerik += `   🌆 AKŞAM (16:00-00:00): ${v.aksam.join(', ') || '—'}\n`;
-            if (v.izinli.length) icerik += `   📌 İZİNLİ: ${v.izinli.join(', ')}\n`;
-            icerik += "-".repeat(80) + "\n";
-        }
-        
-        const blob = new Blob([icerik], { type: 'text/plain' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `guzelel_vardiya_${new Date().toISOString().slice(0,10)}.txt`;
-        link.click();
-    }
-    
-    document.getElementById('ekleBtn').addEventListener('click', personelEkle);
-    document.getElementById('izinEkleBtn').addEventListener('click', izinEkle);
-    document.getElementById('takvimOlusturBtn').addEventListener('click', takvimOlustur);
-    document.getElementById('excelIndirBtn').addEventListener('click', excelIndir);
-    document.getElementById('whatsappBtn').addEventListener('click', whatsappPaylas);
-    document.getElementById('txtIndirBtn').addEventListener('click', txtIndir);
-    
-    document.getElementById('baslangicTarihi').value = new Date().toISOString().slice(0,10);
-    personelListesiniGoster();
-    izinListesiniGoster();
-    
-    setTimeout(() => {
-        takvimOlustur();
-    }, 100);
-</script>
+<script src="script.js"></script>
 </body>
 </html>

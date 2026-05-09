@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GÜZELEL PETROL A.Ş. - Kararlı Vardiya Sistemi</title>
     <link rel="stylesheet" href="style.css">
+<script type="module">
+  // Firebase SDK'larını içe aktar
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+
+  // Firebase yapılandırma bilgileriniz
+  const firebaseConfig = {
+    apiKey: "AIzaSyD93G1P_IkoqZ7mWLfpLr55sw5KaPD2kP4",
+    authDomain: "vardiya-sistemi-fe09f.firebaseapp.com",
+    projectId: "vardiya-sistemi-fe09f",
+    storageBucket: "vardiya-sistemi-fe09f.firebasestorage.app",
+    messagingSenderId: "754893454073",
+    appId: "1:754893454073:web:d692f66f34cc075c0f4028",
+    measurementId: "G-6W8C8ZT70D"
+  };
+
+  // Firebase'i başlat
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getFirestore(app);
+
+  // Bu değişkenleri global olarak kullanılabilir yap
+  window.db = db;
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc;
+</script>
+
 </head>
 <body>
 <div class="container">

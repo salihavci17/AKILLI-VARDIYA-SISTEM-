@@ -1,4 +1,22 @@
-// ============ KALICI VERİ (localStorage) ============
+// Firebase referansları
+let db;
+let doc, setDoc, getDoc;
+
+// Sayfa yüklendiğinde Firebase'i kullanıma hazırla
+window.addEventListener('load', () => {
+  db = window.db;
+  doc = window.doc;
+  setDoc = window.setDoc;
+  getDoc = window.getDoc;
+  veriYukle().then(() => {
+    personelListesiniGoster();
+    izinListesiniGoster();
+    kuralListesiniGoster();
+    setTimeout(() => takvimOlustur(), 100);
+  });
+});
+
+// ============ VERİ LİSTELERİ ============
 let personeller = [];
 let izinler = [];
 let vardiyaHafizasi = [];
@@ -25,36 +43,6 @@ const defaultPersoneller = [
     { isim: "ÖZLEM", cinsiyet: "K", yetkinlik: "hepsi" },
     { isim: "NESİBE", cinsiyet: "K", yetkinlik: "hepsi" }
 ];
-
-// ============ TARİH ARALIĞI BAZLI TAKVİM KAYIT ============
-function getTakvimKey(baslangic, gunSayisi) {
-    let tarihStr = baslangic instanceof Date ? baslangic.toISOString().slice(0,10) : baslangic;
-    return `guzelel_takvim_${tarihStr}_${gunSayisi}`;
-}
-
-function kaydetTakvim(vardiyalar, baslangic, gunSayisi) {
-    let key = getTakvimKey(baslangic, gunSayisi);
-    let saklanacak = vardiyalar.map(v => ({
-        tarih: v.tarih.toISOString(),
-        gece: [...v.gece],
-        sabah: [...v.sabah],
-        aksam: [...v.aksam],
-        izinli: [...v.izinli],
-        haftasonu: v.haftasonu
-    }));
-    localStorage.setItem(key, JSON.stringify(saklanacak));
-}
-
-function yukleTakvim(baslangic, gunSayisi) {
-    let key = getTakvimKey(baslangic, gunSayisi);
-    let data = localStorage.getItem(key);
-    if (!data) return null;
-    let vardiyalar = JSON.parse(data);
-    return vardiyalar.map(v => ({
-        ...v,
-        tarih: new Date(v.tarih)
-    }));
-}
 
 // ============ YARDIMCI FONKSİYONLAR ============
 function getErkekler() { return personeller.filter(p => p.cinsiyet === "E").map(p => p.isim); }
@@ -98,155 +86,190 @@ function yetkinlikKontrol(isim, vardiya) {
     return false;
 }
 
+// ============ VERİ YÖNETİMİ (Firebase + LocalStorage) ============
+async function veriKaydet() {
+    // LocalStorage yedeği
+    localStorage.setItem("guzelel_personeller", JSON.stringify(personeller));
+    localStorage.setItem("guzelel_izinler", JSON.stringify(izinler));
+    localStorage.setItem("guzelel_hafiza", JSON.stringify(vardiyaHafizasi));
+    localStorage.setItem("guzelel_kurallar", JSON.stringify(kurallar));
+    
+    if (!db) return;
+    try {
+        await setDoc(doc(db, "personeller", "liste"), { data: personeller });
+        await setDoc(doc(db, "izinler", "liste"), { data: izinler });
+        await setDoc(doc(db, "kurallar", "liste"), { data: kurallar });
+        await setDoc(doc(db, "hafiza", "gecmis"), { data: vardiyaHafizasi });
+    } catch (e) { console.error("Veri kaydedilemedi:", e); }
+}
+
+async function veriYukle() {
+    if (!db) {
+        let p = localStorage.getItem("guzelel_personeller");
+        if (p) personeller = JSON.parse(p);
+        else personeller = JSON.parse(JSON.stringify(defaultPersoneller));
+        let i = localStorage.getItem("guzelel_izinler");
+        if (i) izinler = JSON.parse(i);
+        else izinler = [];
+        let h = localStorage.getItem("guzelel_hafiza");
+        if (h) vardiyaHafizasi = JSON.parse(h);
+        else vardiyaHafizasi = [];
+        let k = localStorage.getItem("guzelel_kurallar");
+        if (k) kurallar = JSON.parse(k);
+        else kurallar = [];
+        return;
+    }
+    try {
+        let pDoc = await getDoc(doc(db, "personeller", "liste"));
+        if (pDoc.exists()) personeller = pDoc.data().data;
+        else personeller = JSON.parse(JSON.stringify(defaultPersoneller));
+        let iDoc = await getDoc(doc(db, "izinler", "liste"));
+        if (iDoc.exists()) izinler = iDoc.data().data;
+        else izinler = [];
+        let hDoc = await getDoc(doc(db, "hafiza", "gecmis"));
+        if (hDoc.exists()) vardiyaHafizasi = hDoc.data().data;
+        else vardiyaHafizasi = [];
+        let kDoc = await getDoc(doc(db, "kurallar", "liste"));
+        if (kDoc.exists()) kurallar = kDoc.data().data;
+        else kurallar = [];
+    } catch (e) { console.error("Veri yüklenemedi:", e); }
+}
+
+// ============ TARİH ARALIĞI BAZLI TAKVİM KAYIT ============
+async function kaydetTakvim(vardiyalar, baslangic, gunSayisi) {
+    let tarihStr = baslangic instanceof Date ? baslangic.toISOString().slice(0,10) : baslangic;
+    let key = `guzelel_takvim_${tarihStr}_${gunSayisi}`;
+    let saklanacak = vardiyalar.map(v => ({
+        tarih: v.tarih.toISOString(),
+        gece: [...v.gece],
+        sabah: [...v.sabah],
+        aksam: [...v.aksam],
+        izinli: [...v.izinli],
+        haftasonu: v.haftasonu
+    }));
+    localStorage.setItem(key, JSON.stringify(saklanacak));
+    if (!db) return;
+    try {
+        await setDoc(doc(db, "takvimler", key), { data: saklanacak });
+    } catch(e) { console.error("Takvim kaydedilemedi:", e); }
+}
+
+async function yukleTakvim(baslangic, gunSayisi) {
+    let tarihStr = baslangic instanceof Date ? baslangic.toISOString().slice(0,10) : baslangic;
+    let key = `guzelel_takvim_${tarihStr}_${gunSayisi}`;
+    let data = localStorage.getItem(key);
+    if (data) {
+        let vardiyalar = JSON.parse(data);
+        return vardiyalar.map(v => ({ ...v, tarih: new Date(v.tarih) }));
+    }
+    if (!db) return null;
+    try {
+        let docSnap = await getDoc(doc(db, "takvimler", key));
+        if (docSnap.exists()) {
+            let vardiyalar = docSnap.data().data;
+            return vardiyalar.map(v => ({ ...v, tarih: new Date(v.tarih) }));
+        }
+    } catch(e) { console.error("Takvim yüklenemedi:", e); }
+    return null;
+}
+
 // ============ DETERMİNİSTİK VARDİYA OLUŞTURMA (SADECE YENİ İÇİN) ============
 function vardiyaOlusturYeni(gunAdet, baslangic) {
     let vardiyalar = [];
     let erkekler = getErkekler();
     let kadinlar = getKadinlar();
     let tumPersonel = personeller.map(p => p.isim);
-    
-    // Her gün için döngüsel kaydırma (izinlilerin değişmesi için)
     let kaydirma = 0;
     
     for (let gun = 0; gun < gunAdet; gun++) {
         let tarih = new Date(baslangic);
         tarih.setDate(baslangic.getDate() + gun);
-        let haftasonu = (tarih.getDay() === 0 || tarih.getDay() === 6);
-        
-        // 1. İzinlileri (normal izin + pazartesi kuralı) hesapla
         let izinliNormal = personeller.filter(p => izinKontrol(p.isim, tarih)).map(p => p.isim);
         let kuralIzinliler = personeller.filter(p => {
-            for (let k of kurallar) {
-                if (k.tip === "personel" && k.personel === p.isim && k.kural === "pazartesi_izin" && tarih.getDay() === 1) return true;
-            }
+            for (let k of kurallar) if (k.tip === "personel" && k.personel === p.isim && k.kural === "pazartesi_izin" && tarih.getDay() === 1) return true;
             return false;
         }).map(p => p.isim);
         let sabitIzinliler = [...new Set([...izinliNormal, ...kuralIzinliler])];
-        
-        // 2. Gece vardiyası için uygun erkekler (sabit izinliler hariç, kurallara uygun)
-        let musaitErkekler = erkekler.filter(e =>
-            !sabitIzinliler.includes(e) &&
-            yetkinlikKontrol(e, "gece") &&
-            kuralKontrol(e, "gece", tarih)
-        );
-        
+        let musaitErkekler = erkekler.filter(e => !sabitIzinliler.includes(e) && yetkinlikKontrol(e, "gece") && kuralKontrol(e, "gece", tarih));
         if (musaitErkekler.length < 2) {
             alert(`Gece için yeterli erkek yok: ${tarih.toLocaleDateString('tr-TR')}`);
             return null;
         }
-        
-        // 3. Gece vardiyasını seç (2 erkek, döngüsel)
         let gece = [];
         let geciciIndex = (gun * 2 + kaydirma) % musaitErkekler.length;
-        for (let i = 0; i < 2; i++) {
-            gece.push(musaitErkekler[(geciciIndex + i) % musaitErkekler.length]);
-        }
-        
-        // 4. Geceye gidenler ve sabit izinliler dışında kalan tüm personel (çalışabilecekler)
-        let calisabilecekler = tumPersonel.filter(p =>
-            !sabitIzinliler.includes(p) && !gece.includes(p)
-        );
-        
-        // 5. Sabah ve akşam için toplam 6 kişi seçilecek. Kalanlar izinli olacak.
-        let toplamIhtiyac = 6; // sabah + akşam
-        if (calisabilecekler.length < toplamIhtiyac) {
+        for (let i = 0; i < 2; i++) gece.push(musaitErkekler[(geciciIndex + i) % musaitErkekler.length]);
+        let calisabilecekler = tumPersonel.filter(p => !sabitIzinliler.includes(p) && !gece.includes(p));
+        if (calisabilecekler.length < 6) {
             alert(`Yeterli personel yok: ${tarih.toLocaleDateString('tr-TR')}`);
             return null;
         }
-        
-        // Seçim için sıralı bir liste yapalım (döngüsel)
-        let siraliListe = [...calisabilecekler];
-        let kayma = (gun * 3 + kaydirma) % siraliListe.length;
-        siraliListe = [...siraliListe.slice(kayma), ...siraliListe.slice(0, kayma)];
-        
-        // 6. Önce kadınları sabah ve akşama dağıt (max 2 kadın/vardiya)
-        let secilenler = [];
-        let kalanKadinlar = siraliListe.filter(p => kadinlar.includes(p));
-        let kalanErkekler = siraliListe.filter(p => erkekler.includes(p));
-        
-        // Sabah vardiyasına kadın seçimi (max 2)
+        let sirali = [...calisabilecekler];
+        let kayma = (gun * 3 + kaydirma) % sirali.length;
+        sirali = [...sirali.slice(kayma), ...sirali.slice(0, kayma)];
+
+        /* Sabah ve Akşam Vardiyası Oluşturma (max 2 kadın kuralı) */
+        let kalanKadinlar = sirali.filter(p => kadinlar.includes(p));
+        let kalanErkekler = sirali.filter(p => erkekler.includes(p));
         let sabah = [];
-        let alinacakKadinSabah = Math.min(2, kalanKadinlar.length);
-        for (let i = 0; i < alinacakKadinSabah; i++) {
-            sabah.push(kalanKadinlar[i]);
-        }
-        // Sabah vardiyasını erkeklerle tamamla (3 kişi olana kadar)
-        let kalanSabahKont = 3 - sabah.length;
-        for (let i = 0; i < kalanSabahKont; i++) {
-            if (kalanErkekler.length === 0) break;
-            sabah.push(kalanErkekler[i]);
-        }
-        secilenler.push(...sabah);
-        
-        // Akşam vardiyası için kalan kadın/erkeklerden 3 kişi seç
-        let kalanlar = siraliListe.filter(p => !secilenler.includes(p));
+        let alinacakKadin = Math.min(2, kalanKadinlar.length);
+        for (let i = 0; i < alinacakKadin; i++) sabah.push(kalanKadinlar[i]);
+        let eksik = 3 - sabah.length;
+        for (let i = 0; i < eksik; i++) if (kalanErkekler.length) sabah.push(kalanErkekler[i]);
+        let secilenler = [...sabah];
+        let kalanlar = sirali.filter(p => !secilenler.includes(p));
         let aksam = kalanlar.slice(0, 3);
         secilenler.push(...aksam);
-        
-        // Geriye kalanlar (secilenler listesinde olmayanlar) izinli olacak
         let dinlenenler = calisabilecekler.filter(p => !secilenler.includes(p));
         let tumIzinliler = [...new Set([...sabitIzinliler, ...dinlenenler])];
-        
-        // Eğer aksam vardiyasında 3 kadın varsa (kural ihlali), düzelt
+
+        /* Akşamda 3 kadın varsa düzelt */
         let aksamKadin = aksam.filter(p => kadinlar.includes(p)).length;
-        if (aksamKadin > 2) {
-            // Akşamdaki fazla kadınları sabah ile değiştir
-            let fazla = aksamKadin - 2;
-            for (let i = 0; i < fazla; i++) {
-                let aksamKadini = aksam.find(p => kadinlar.includes(p));
-                let sabahErkegi = sabah.find(p => erkekler.includes(p));
-                if (aksamKadini && sabahErkegi) {
-                    aksam = aksam.filter(p => p !== aksamKadini);
-                    sabah = sabah.filter(p => p !== sabahErkegi);
-                    aksam.push(sabahErkegi);
-                    sabah.push(aksamKadini);
-                    // secilenler listesini de güncelle
-                    secilenler = [...sabah, ...aksam];
-                    dinlenenler = calisabilecekler.filter(p => !secilenler.includes(p));
-                    tumIzinliler = [...new Set([...sabitIzinliler, ...dinlenenler])];
+        if (aksamKadin === 3) for (let i = 0; i < aksam.length; i++) {
+            if (kadinlar.includes(aksam[i])) {
+                let sabahErkek = sabah.find(p => erkekler.includes(p));
+                if (sabahErkek) {
+                    let kadin = aksam[i];
+                    aksam[i] = sabahErkek;
+                    sabah[sabah.indexOf(sabahErkek)] = kadin;
+                    break;
                 }
             }
         }
-        
-        // Son kontroller: her vardiya 3 kişi mi?
+        let yeniCalisanlar = [...sabah, ...aksam];
+        dinlenenler = calisabilecekler.filter(p => !yeniCalisanlar.includes(p));
+        tumIzinliler = [...new Set([...sabitIzinliler, ...dinlenenler])];
         while (sabah.length < 3 && aksam.length > 3) sabah.push(aksam.pop());
         while (aksam.length < 3 && sabah.length > 3) aksam.push(sabah.pop());
-        
+
         vardiyalar.push({
             tarih: new Date(tarih),
             gece: gece,
             sabah: sabah,
             aksam: aksam,
             izinli: tumIzinliler,
-            haftasonu: haftasonu
+            haftasonu: (tarih.getDay() === 0 || tarih.getDay() === 6)
         });
-        
-        // Her gün kaydırmayı artır ki izinliler değişsin (eşit dağılım için)
         kaydirma = (kaydirma + 1) % tumPersonel.length;
     }
     return vardiyalar;
 }
 
 // ============ ANA VARDİYA OLUŞTUR / YÜKLE ============
-function takvimOlustur() {
+async function takvimOlustur() {
     let gunSayisi = parseInt(document.getElementById('gunSayisi').value);
     let baslangicStr = document.getElementById('baslangicTarihi').value;
     let baslangic = baslangicStr ? new Date(baslangicStr) : new Date();
     let hafizaKullan = document.getElementById('hafizaKullan').value;
+    let kayitli = await yukleTakvim(baslangic, gunSayisi);
     
-    // Önce kayıtlı takvim var mı?
-    let kayitli = yukleTakvim(baslangic, gunSayisi);
     if (kayitli) {
         vardiyalarGuncel = kayitli;
         if (hafizaKullan === 'evet') {
-            // Vardiya hafızasını güncelle (sonraki adil dağılım için)
             vardiyaHafizasi = [];
-            for (let v of kayitli) {
-                for (let p of v.gece) vardiyaHafizasi.push({ tarih: new Date(v.tarih), personel: p, vardiya: "gece", haftasonu: v.haftasonu });
-                for (let p of v.sabah) vardiyaHafizasi.push({ tarih: new Date(v.tarih), personel: p, vardiya: "sabah", haftasonu: v.haftasonu });
-                for (let p of v.aksam) vardiyaHafizasi.push({ tarih: new Date(v.tarih), personel: p, vardiya: "aksam", haftasonu: v.haftasonu });
-            }
-            veriKaydet();
+            for (let v of kayitli) for (let p of v.gece) vardiyaHafizasi.push({ tarih: new Date(v.tarih), personel: p, vardiya: "gece", haftasonu: v.haftasonu });
+            for (let v of kayitli) for (let p of v.sabah) vardiyaHafizasi.push({ tarih: new Date(v.tarih), personel: p, vardiya: "sabah", haftasonu: v.haftasonu });
+            for (let v of kayitli) for (let p of v.aksam) vardiyaHafizasi.push({ tarih: new Date(v.tarih), personel: p, vardiya: "aksam", haftasonu: v.haftasonu });
+            await veriKaydet();
         }
         tabloyuGoster(vardiyalarGuncel);
         istatistikGoster(vardiyalarGuncel);
@@ -258,7 +281,6 @@ function takvimOlustur() {
         return;
     }
     
-    // Yoksa yeni oluştur
     let v = vardiyaOlusturYeni(gunSayisi, baslangic);
     if (!v) return;
     vardiyalarGuncel = v;
@@ -272,7 +294,7 @@ function takvimOlustur() {
     window.sonGunSayisi = gunSayisi;
 }
 
-// ============ TABLO GÖSTERİMİ VE DÜZENLEME (MANUEL KİŞİ SAYISI) ============
+// ============ TABLO GÖSTERİMİ VE DÜZENLEME ============
 function tabloyuGoster(vardiyalar) {
     let html = `<table class="vardiya-tablosu">
         <thead><tr><th>TARİH / GÜN</th><th>🌙 GECE<br><span style="font-size:10px;">${saatler.gece}</span></th>
@@ -304,8 +326,7 @@ function tabloyuGoster(vardiyalar) {
     }
 }
 
-// Yeni: Dropdown menü + "Listeyi Düzenle" seçeneği (manuel sayı değiştirme)
-function acDropdown(span) {
+async function acDropdown(span) {
     if (!duzenlemeModu) return;
     if (aktifDropdown) aktifDropdown.remove();
     let eskiPersonel = span.getAttribute('data-p');
@@ -315,14 +336,7 @@ function acDropdown(span) {
     let tarih = vardiyalarGuncel[gun].tarih;
     let izinliler = personeller.filter(p => izinKontrol(p.isim, tarih)).map(p => p.isim);
     let mevcutListe = vardiyalarGuncel[gun][vardiyaTipi];
-    
-    let adaylar = personeller.filter(p =>
-        !izinliler.includes(p.isim) &&
-        !(vardiyaTipi === 'gece' && p.cinsiyet === 'K') &&
-        yetkinlikKontrol(p.isim, vardiyaTipi) &&
-        kuralKontrol(p.isim, vardiyaTipi, tarih)
-    ).map(p => p.isim);
-    
+    let adaylar = personeller.filter(p => !izinliler.includes(p.isim) && !(vardiyaTipi === 'gece' && p.cinsiyet === 'K') && yetkinlikKontrol(p.isim, vardiyaTipi) && kuralKontrol(p.isim, vardiyaTipi, tarih)).map(p => p.isim);
     let dropdown = document.createElement('div');
     dropdown.className = 'personel-dropdown';
     let rect = span.getBoundingClientRect();
@@ -330,12 +344,10 @@ function acDropdown(span) {
     dropdown.style.top = `${rect.bottom + window.scrollY}px`;
     dropdown.style.left = `${rect.left + window.scrollX}px`;
     
-    // Mevcut personel listesini göster
+    // Mevcut listeyi göster
     let baslik = document.createElement('div');
     baslik.textContent = `Mevcut (${mevcutListe.length} kişi): ${mevcutListe.join(', ')}`;
-    baslik.style.fontWeight = 'bold';
-    baslik.style.padding = '8px';
-    baslik.style.background = '#f0f0f0';
+    baslik.style.fontWeight = 'bold'; baslik.style.padding = '8px'; baslik.style.background = '#f0f0f0';
     dropdown.appendChild(baslik);
     
     // "Listeyi Düzenle (Elle)" seçeneği
@@ -343,17 +355,16 @@ function acDropdown(span) {
     duzenleSec.textContent = '✏️ Listeyi Düzenle (virgülle ayır)';
     duzenleSec.style.background = '#e0e0e0';
     duzenleSec.onclick = () => {
-        let yeniListeStr = prompt("Personel isimlerini virgülle ayırarak yazın:\nÖrnek: ALİ, VELİ, MEHMET, AYŞE", mevcutListe.join(', '));
+        let yeniListeStr = prompt("Personel isimlerini virgülle ayırarak yazın:", mevcutListe.join(', '));
         if (yeniListeStr) {
             let yeniListe = yeniListeStr.split(',').map(p => p.trim().toUpperCase());
-            // Basit geçerlilik kontrolü (hepsi sistemde var mı? vardiya kısıtlarına uyuyor mu?)
             let gecerli = true;
             for (let p of yeniListe) {
                 let per = personeller.find(pr => pr.isim === p);
                 if (!per) { alert(`${p} sistemde yok!`); gecerli = false; break; }
                 if (vardiyaTipi === 'gece' && per.cinsiyet === 'K') { alert(`${p} kadın gece çalışamaz!`); gecerli = false; break; }
                 if (!yetkinlikKontrol(p, vardiyaTipi)) { alert(`${p} bu vardiyada çalışamaz!`); gecerli = false; break; }
-                if (!kuralKontrol(p, vardiyaTipi, tarih)) { alert(`${p} bu gün bu vardiyada çalışamaz (kural)!`); gecerli = false; break; }
+                if (!kuralKontrol(p, vardiyaTipi, tarih)) { alert(`${p} bu gün bu vardiyada çalışamaz!`); gecerli = false; break; }
             }
             if (gecerli) {
                 vardiyalarGuncel[gun][vardiyaTipi] = yeniListe;
@@ -362,31 +373,24 @@ function acDropdown(span) {
                 document.getElementById('kontrolMesaji').innerHTML = '<div class="uyari">✏️ Değişiklik yapıldı. Onaylayın.</div>';
             }
         }
-        dropdown.remove();
-        aktifDropdown = null;
+        dropdown.remove(); aktifDropdown = null;
     };
     dropdown.appendChild(duzenleSec);
     
-    // Ayırıcı çizgi
-    let hr = document.createElement('hr');
-    dropdown.appendChild(hr);
+    let hr = document.createElement('hr'); dropdown.appendChild(hr);
     
-    // Mevcut personellerin tıklanarak değiştirilmesi
+    // Mevcut listeyi değiştir
     mevcutListe.forEach(p => {
         let opt = document.createElement('div');
         opt.textContent = `🔁 ${p} → değiştir`;
         opt.onclick = () => {
-            // Değiştirme için yeni bir dropdown gerekebilir, basitçe bu personeli listeden çıkarıp yerine seçim yaptırmak.
             let yeni = prompt(`${p} yerine hangi personel gelsin?`, "");
             if (yeni) {
                 let yeniIsim = yeni.trim().toUpperCase();
                 let per = personeller.find(pr => pr.isim === yeniIsim);
                 if (!per) { alert(`${yeniIsim} sistemde yok!`); dropdown.remove(); aktifDropdown=null; return; }
                 if (vardiyaTipi === 'gece' && per.cinsiyet === 'K') { alert(`${yeniIsim} kadın gece çalışamaz!`); dropdown.remove(); aktifDropdown=null; return; }
-                if (!yetkinlikKontrol(yeniIsim, vardiyaTipi) || !kuralKontrol(yeniIsim, vardiyaTipi, tarih)) {
-                    alert(`${yeniIsim} bu vardiyada çalışamaz!`);
-                    dropdown.remove(); aktifDropdown=null; return;
-                }
+                if (!yetkinlikKontrol(yeniIsim, vardiyaTipi) || !kuralKontrol(yeniIsim, vardiyaTipi, tarih)) { alert(`${yeniIsim} bu vardiyada çalışamaz!`); dropdown.remove(); aktifDropdown=null; return; }
                 let liste = vardiyalarGuncel[gun][vardiyaTipi];
                 let idx = liste.indexOf(p);
                 if (idx !== -1) liste[idx] = yeniIsim;
@@ -394,21 +398,16 @@ function acDropdown(span) {
                 document.getElementById('kaydetBtn').style.display = 'inline-block';
                 document.getElementById('kontrolMesaji').innerHTML = '<div class="uyari">✏️ Değişiklik yapıldı. Onaylayın.</div>';
             }
-            dropdown.remove();
-            aktifDropdown = null;
+            dropdown.remove(); aktifDropdown = null;
         };
         dropdown.appendChild(opt);
     });
     
-    // Ayırıcı
-    let hr2 = document.createElement('hr');
-    dropdown.appendChild(hr2);
+    let hr2 = document.createElement('hr'); dropdown.appendChild(hr2);
     
-    // Yeni personel ekle (dropdown'dan seçim)
     let ekleBaslik = document.createElement('div');
     ekleBaslik.textContent = '➕ Kalan personelden ekle:';
-    ekleBaslik.style.fontWeight = 'bold';
-    ekleBaslik.style.padding = '5px';
+    ekleBaslik.style.fontWeight = 'bold'; ekleBaslik.style.padding = '5px';
     dropdown.appendChild(ekleBaslik);
     
     let kalanAdaylar = adaylar.filter(a => !mevcutListe.includes(a));
@@ -417,28 +416,22 @@ function acDropdown(span) {
         bos.textContent = '(eklenecek uygun personel yok)';
         bos.style.color = '#999';
         dropdown.appendChild(bos);
-    } else {
-        kalanAdaylar.forEach(adm => {
-            let opt = document.createElement('div');
-            opt.textContent = `➕ ${adm}`;
-            opt.onclick = () => {
-                vardiyalarGuncel[gun][vardiyaTipi].push(adm);
-                tabloyuGoster(vardiyalarGuncel);
-                document.getElementById('kaydetBtn').style.display = 'inline-block';
-                document.getElementById('kontrolMesaji').innerHTML = '<div class="uyari">✏️ Değişiklik yapıldı. Onaylayın.</div>';
-                dropdown.remove();
-                aktifDropdown = null;
-            };
-            dropdown.appendChild(opt);
-        });
-    }
+    } else kalanAdaylar.forEach(adm => {
+        let opt = document.createElement('div');
+        opt.textContent = `➕ ${adm}`;
+        opt.onclick = () => {
+            vardiyalarGuncel[gun][vardiyaTipi].push(adm);
+            tabloyuGoster(vardiyalarGuncel);
+            document.getElementById('kaydetBtn').style.display = 'inline-block';
+            document.getElementById('kontrolMesaji').innerHTML = '<div class="uyari">✏️ Değişiklik yapıldı. Onaylayın.</div>';
+            dropdown.remove(); aktifDropdown = null;
+        };
+        dropdown.appendChild(opt);
+    });
     
-    // Personel çıkarma
     let cikarBaslik = document.createElement('div');
     cikarBaslik.textContent = '➖ Bu vardiyadan çıkar:';
-    cikarBaslik.style.fontWeight = 'bold';
-    cikarBaslik.style.padding = '5px';
-    cikarBaslik.style.marginTop = '5px';
+    cikarBaslik.style.fontWeight = 'bold'; cikarBaslik.style.padding = '5px'; cikarBaslik.style.marginTop = '5px';
     dropdown.appendChild(cikarBaslik);
     
     mevcutListe.forEach(p => {
@@ -451,8 +444,7 @@ function acDropdown(span) {
             tabloyuGoster(vardiyalarGuncel);
             document.getElementById('kaydetBtn').style.display = 'inline-block';
             document.getElementById('kontrolMesaji').innerHTML = '<div class="uyari">✏️ Değişiklik yapıldı. Onaylayın.</div>';
-            dropdown.remove();
-            aktifDropdown = null;
+            dropdown.remove(); aktifDropdown = null;
         };
         dropdown.appendChild(opt);
     });
@@ -463,8 +455,7 @@ function acDropdown(span) {
     setTimeout(() => {
         const kapat = (e) => {
             if (dropdown && !dropdown.contains(e.target) && !span.contains(e.target)) {
-                dropdown.remove();
-                aktifDropdown = null;
+                dropdown.remove(); aktifDropdown = null;
                 document.removeEventListener('click', kapat);
             }
         };
@@ -472,9 +463,7 @@ function acDropdown(span) {
     }, 10);
 }
 
-// ============ DİĞER FONKSİYONLAR (ONAYLAMA, İPTAL, İSTATİSTİK, CRUD) ============
-function degisiklikleriOnayla() {
-    // Önce hafızayı güncelle
+async function degisiklikleriOnayla() {
     vardiyaHafizasi = [];
     for (let v of vardiyalarGuncel) {
         let t = new Date(v.tarih);
@@ -483,13 +472,12 @@ function degisiklikleriOnayla() {
         for (let p of v.aksam) vardiyaHafizasi.push({ tarih: t, personel: p, vardiya: "aksam", haftasonu: v.haftasonu });
     }
     window.originalVardiyalar = JSON.parse(JSON.stringify(vardiyalarGuncel));
-    // Takvimi localStorage'a kaydet
-    kaydetTakvim(vardiyalarGuncel, window.sonBaslangic, window.sonGunSayisi);
+    await kaydetTakvim(vardiyalarGuncel, window.sonBaslangic, window.sonGunSayisi);
     document.getElementById('kontrolMesaji').innerHTML = '<div class="basarili">✅ Değişiklikler onaylandı ve hafızaya kaydedildi.</div>';
     document.getElementById('kaydetBtn').style.display = 'none';
     duzenlemeModunuKapat();
     istatistikGoster(vardiyalarGuncel);
-    veriKaydet();
+    await veriKaydet();
 }
 
 function duzenlemeModunuAc() {
@@ -577,32 +565,32 @@ function kuralListesiniGoster() {
     }).join('');
 }
 
-window.personelSil = (idx) => {
+window.personelSil = async (idx) => {
     if (confirm(`${personeller[idx].isim} silinsin mi?`)) {
         personeller.splice(idx, 1);
         vardiyaHafizasi = [];
         personelListesiniGoster();
-        veriKaydet();
+        await veriKaydet();
         if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
     }
 };
 
-window.izinSil = (idx) => {
+window.izinSil = async (idx) => {
     izinler.splice(idx, 1);
     vardiyaHafizasi = [];
     izinListesiniGoster();
-    veriKaydet();
+    await veriKaydet();
     if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
 };
 
-window.kuralSil = (idx) => {
+window.kuralSil = async (idx) => {
     kurallar.splice(idx, 1);
     kuralListesiniGoster();
-    veriKaydet();
+    await veriKaydet();
     if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
 };
 
-function personelEkle() {
+async function personelEkle() {
     let isim = document.getElementById('yeniIsim').value.trim().toUpperCase();
     let cins = document.getElementById('yeniCinsiyet').value;
     let yet = document.getElementById('yeniYetkinlik').value;
@@ -611,11 +599,11 @@ function personelEkle() {
     personeller.push({ isim, cinsiyet: cins, yetkinlik: yet });
     document.getElementById('yeniIsim').value = '';
     personelListesiniGoster();
-    veriKaydet();
+    await veriKaydet();
     if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
 }
 
-function izinEkle() {
+async function izinEkle() {
     let per = document.getElementById('izinPersonel').value;
     let bas = document.getElementById('izinBaslangic').value;
     let bit = document.getElementById('izinBitis').value;
@@ -625,18 +613,18 @@ function izinEkle() {
     document.getElementById('izinPersonel').value = '';
     document.getElementById('izinBaslangic').value = '';
     document.getElementById('izinBitis').value = '';
-    veriKaydet();
+    await veriKaydet();
     if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
 }
 
-function kuralEkle() {
+async function kuralEkle() {
     let tip = document.getElementById('kuralTipi').value;
     let personel = document.getElementById('kuralPersonel').value;
     let kuralAd = document.getElementById('kuralAdi').value;
     if (tip === 'personel' && !personel) { alert("Personel seçin"); return; }
     kurallar.push({ tip, personel: tip === 'personel' ? personel : null, kural: kuralAd });
     kuralListesiniGoster();
-    veriKaydet();
+    await veriKaydet();
     if (document.getElementById('tabloKarti').style.display !== 'none') takvimOlustur();
 }
 
@@ -669,29 +657,7 @@ async function whatsappPaylas() {
     });
 }
 
-function veriKaydet() {
-    localStorage.setItem("guzelel_personeller", JSON.stringify(personeller));
-    localStorage.setItem("guzelel_izinler", JSON.stringify(izinler));
-    localStorage.setItem("guzelel_hafiza", JSON.stringify(vardiyaHafizasi));
-    localStorage.setItem("guzelel_kurallar", JSON.stringify(kurallar));
-}
-
-function veriYukle() {
-    let p = localStorage.getItem("guzelel_personeller");
-    if (p) personeller = JSON.parse(p);
-    else personeller = JSON.parse(JSON.stringify(defaultPersoneller));
-    let i = localStorage.getItem("guzelel_izinler");
-    if (i) izinler = JSON.parse(i);
-    else izinler = [];
-    let h = localStorage.getItem("guzelel_hafiza");
-    if (h) vardiyaHafizasi = JSON.parse(h);
-    else vardiyaHafizasi = [];
-    let k = localStorage.getItem("guzelel_kurallar");
-    if (k) kurallar = JSON.parse(k);
-    else kurallar = [];
-}
-
-// ============ EVENT LISTENER'LAR VE BAŞLANGIÇ ============
+// ============ EVENT LISTENER'LAR ============
 document.getElementById('ekleBtn').addEventListener('click', personelEkle);
 document.getElementById('izinEkleBtn').addEventListener('click', izinEkle);
 document.getElementById('kuralEkleBtn').addEventListener('click', kuralEkle);
@@ -708,8 +674,3 @@ document.getElementById('kuralTipi').addEventListener('change', function() {
 });
 
 document.getElementById('baslangicTarihi').value = new Date().toISOString().slice(0,10);
-veriYukle();
-personelListesiniGoster();
-izinListesiniGoster();
-kuralListesiniGoster();
-setTimeout(() => takvimOlustur(), 100);

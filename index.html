@@ -3,93 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GÜZELEL PETROL A.Ş. - Kararlı Vardiya Sistemi</title>
+    <title>GÜZELEL PETROL A.Ş. - Vardiya Sistemi</title>
     <link rel="stylesheet" href="style.css">
-<script type="module">
-  // Firebase SDK'larını içe aktar
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
 
-  // Firebase yapılandırma bilgileriniz
-  const firebaseConfig = {
-    apiKey: "AIzaSyD93G1P_IkoqZ7mWLfpLr55sw5KaPD2kP4",
-    authDomain: "vardiya-sistemi-fe09f.firebaseapp.com",
-    projectId: "vardiya-sistemi-fe09f",
-    storageBucket: "vardiya-sistemi-fe09f.firebasestorage.app",
-    messagingSenderId: "754893454073",
-    appId: "1:754893454073:web:d692f66f34cc075c0f4028",
-    measurementId: "G-6W8C8ZT70D"
-  };
+        const firebaseConfig = {
+            apiKey: "AIzaSyD93G1P_IkoqZ7mWLfpLr55sw5KaPD2kP4",
+            authDomain: "vardiya-sistemi-fe09f.firebaseapp.com",
+            projectId: "vardiya-sistemi-fe09f",
+            storageBucket: "vardiya-sistemi-fe09f.firebasestorage.app",
+            messagingSenderId: "754893454073",
+            appId: "1:754893454073:web:d692f66f34cc075c0f4028",
+            measurementId: "G-6W8C8ZT70D"
+        };
 
-  // Firebase'i başlat
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-  const db = getFirestore(app);
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
 
-  // Bu değişkenleri global olarak kullanılabilir yap
-  window.db = db;
-  window.doc = doc;
-  window.setDoc = setDoc;
-  window.getDoc = getDoc;
-</script>
-
+        window.db = db;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+    </script>
 </head>
 <body>
 <div class="container">
     <div class="header-card">
-        <h1>⛽ GÜZELEL PETROL A.Ş. <span class="badge">KARARLI SİSTEM</span></h1>
-        <div class="subtitle">Değişikliklerde bozulma yok | Otomatik denge | LocalStorage</div>
+        <h1>⛽ GÜZELEL PETROL A.Ş. <span class="badge">VARDİYA SİSTEMİ</span></h1>
+        <div class="subtitle">Benzinlik + Market | Akıllı dağılım | Hafızalı | Düzenlenebilir</div>
     </div>
 
-    <!-- KURAL YÖNETİMİ -->
+    <!-- MARKET VARDİYASI -->
     <div class="kart">
-        <h2>⚙️ KURAL YÖNETİMİ</h2>
+        <h2>🏪 MARKET VARDİYASI (3 Personel)</h2>
+        <div class="market-uyari">
+            📌 Her personelin haftalık izin günü kendine özeldir.<br>
+            Normal gün: 3 kişi 8 saat (00-08, 08-16, 16-00)<br>
+            İzin günü: Kalan 2 kişi 12 saat çalışır (00-12, 12-00)
+        </div>
         <div class="form-row">
-            <div class="form-field">
-                <label>Kural Tipi</label>
-                <select id="kuralTipi">
-                    <option value="genel">Genel Kural</option>
-                    <option value="personel">Personel Özel Kural</option>
-                </select>
+            <input type="text" id="marketYeniIsim" placeholder="Personel adı">
+            <select id="marketYeniCinsiyet"><option value="E">Erkek</option><option value="K">Kadın</option></select>
+            <select id="marketYeniYetkinlik">
+                <option value="ikisi_de">İkisi de</option><option value="sadece_gece">Sadece Gece</option><option value="sadece_gunduz">Sadece Gündüz</option>
+            </select>
+            <select id="marketIzinGunu">
+                <option value="1">Pazartesi</option><option value="2">Salı</option><option value="3">Çarşamba</option>
+                <option value="4">Perşembe</option><option value="5">Cuma</option><option value="6">Cumartesi</option><option value="0">Pazar</option>
+            </select>
+            <button id="marketEkleBtn" class="btn-secondary">➕ Ekle</button>
+        </div>
+        <div id="marketPersonelListesi" class="personel-container"></div>
+        <div class="form-row" style="margin-top:15px">
+            <div class="form-field"><label>Başlangıç Tarihi</label><input type="date" id="marketBaslangicTarihi"></div>
+            <div class="form-field"><label>Hafta Sayısı</label><input type="number" id="marketHaftaSayisi" value="4" min="1" max="12"></div>
+        </div>
+        <button id="marketTakvimOlusturBtn" class="btn-primary">🎯 MARKET VARDİYA OLUŞTUR</button>
+        <div class="market-tablo-wrapper" id="marketTabloWrapper" style="display:none; margin-top:15px">
+            <div class="toolbar"><span id="marketDurumText">📋 Market Vardiyası</span>
+                <div class="btn-group">
+                    <button id="marketDuzenleBtn" class="btn-duzenle">✏️ Düzenle</button>
+                    <button id="marketKaydetBtn" class="btn-save" style="display:none">💾 Onayla</button>
+                    <button id="marketIptalBtn" class="btn-iptal" style="display:none">❌ İptal</button>
+                </div>
             </div>
-            <div class="form-field" id="personelSecimDiv" style="display:none;">
-                <label>Personel</label>
-                <select id="kuralPersonel"></select>
-            </div>
-            <div class="form-field">
-                <label>Kural</label>
-                <select id="kuralAdi">
-                    <option value="sadece_sabah">Sadece sabah çalışsın</option>
-                    <option value="sadece_aksam">Sadece akşam çalışsın</option>
-                    <option value="sadece_gece">Sadece gece çalışsın</option>
-                    <option value="gece_yasak">Gece çalışmasın</option>
-                    <option value="haftasonu_gece_yasak">Hafta sonu gece çalışmasın</option>
-                    <option value="pazartesi_izin">Pazartesi günü izinli</option>
-                </select>
-            </div>
+            <div id="marketKontrolMesaji"></div>
+            <div id="marketTabloAlan" class="table-container"></div>
+        </div>
+    </div>
+
+    <!-- BENZİNLİK VARDİYASI -->
+    <div class="kart">
+        <h2>⛽ BENZİNLİK VARDİYASI</h2>
+        <div class="kurallar-grid">
+            <div class="kural-item">✅ Kadınlar gece çalışmaz</div><div class="kural-item">✅ Max 2 kadın / vardiya</div>
+            <div class="kural-item">✅ Sabah 3, Akşam 3, Gece 2</div><div class="kural-item">✅ 8 saat dinlenme</div>
+            <div class="kural-item">✅ HAFIZALI</div><div class="kural-item">✅ Düzenlenebilir</div>
+        </div>
+    </div>
+
+    <div class="kart"><h2>⚙️ BENZİNLİK KURAL YÖNETİMİ</h2>
+        <div class="form-row">
+            <div class="form-field"><label>Tip</label><select id="kuralTipi"><option value="genel">Genel</option><option value="personel">Personele özel</option></select></div>
+            <div class="form-field" id="personelSecimDiv" style="display:none"><label>Personel</label><select id="kuralPersonel"></select></div>
+            <div class="form-field"><label>Kural</label><select id="kuralAdi">
+                <option value="sadece_sabah">Sadece sabah</option><option value="sadece_aksam">Sadece akşam</option>
+                <option value="sadece_gece">Sadece gece</option><option value="gece_yasak">Gece yasak</option>
+                <option value="haftasonu_gece_yasak">Hafta sonu gece yasak</option><option value="pazartesi_izin">Pazartesi izin</option>
+            </select></div>
             <button id="kuralEkleBtn" class="btn-secondary">➕ Kural Ekle</button>
         </div>
         <div id="kuralListesi" class="izin-listesi"></div>
-        <div class="uyari" style="margin-top:8px;">
-            💡 Kurallar vardiya oluşturulurken otomatik uygulanır. 
-            "Sadece sabah" gibi kurallar personelin o vardiya dışında çalışmasını engeller.
-        </div>
     </div>
 
-    <div class="kart">
-        <h2>👥 PERSONEL YÖNETİMİ</h2>
+    <div class="kart"><h2>👥 BENZİNLİK PERSONEL YÖNETİMİ</h2>
         <div class="form-row">
             <input type="text" id="yeniIsim" placeholder="Personel adı">
-            <select id="yeniCinsiyet">
-                <option value="E">Erkek 👨</option>
-                <option value="K">Kadın 👩</option>
-            </select>
+            <select id="yeniCinsiyet"><option value="E">Erkek</option><option value="K">Kadın</option></select>
             <select id="yeniYetkinlik">
-                <option value="hepsi">Tüm Vardiyalar</option>
-                <option value="sabah_aksam">Sabah+Akşam</option>
-                <option value="sadece_sabah">Sadece Sabah</option>
-                <option value="sadece_aksam">Sadece Akşam</option>
+                <option value="hepsi">Tüm Vardiyalar</option><option value="sabah_aksam">Sabah+Akşam</option>
+                <option value="sadece_sabah">Sadece Sabah</option><option value="sadece_aksam">Sadece Akşam</option>
                 <option value="sadece_gece">Sadece Gece</option>
             </select>
             <button id="ekleBtn">➕ Ekle</button>
@@ -97,61 +114,39 @@
         <div id="personelListesi" class="personel-container"></div>
     </div>
 
-    <div class="kart">
-        <h2>🏖️ YILLIK İZİN (Tarih aralığı)</h2>
-        <div class="form-row">
-            <select id="izinPersonel"></select>
-            <input type="date" id="izinBaslangic">
-            <input type="date" id="izinBitis">
-            <button id="izinEkleBtn" class="btn-secondary">📅 İzin Ekle</button>
-        </div>
+    <div class="kart"><h2>🏖️ YILLIK İZİN (Benzinlik)</h2>
+        <div class="form-row"><select id="izinPersonel"></select><input type="date" id="izinBaslangic"><input type="date" id="izinBitis"><button id="izinEkleBtn" class="btn-secondary">📅 Ekle</button></div>
         <div id="izinListesi" class="izin-listesi"></div>
     </div>
 
-    <div class="kart">
-        <h2>📅 TAKVİM AYARLARI</h2>
+    <div class="kart"><h2>📅 BENZİNLİK TAKVİM AYARLARI</h2>
         <div class="form-row">
-            <div class="form-field">
-                <label>Başlangıç Tarihi</label>
-                <input type="date" id="baslangicTarihi">
-            </div>
-            <div class="form-field">
-                <label>Gün Sayısı</label>
-                <input type="number" id="gunSayisi" value="14" min="1" max="90">
-            </div>
-            <div class="form-field">
-                <label>Hafızayı Kullan</label>
-                <select id="hafizaKullan">
-                    <option value="evet">Evet (önceki vardiyalara göre)</option>
-                    <option value="hayir">Hayır (sıfırla)</option>
-                </select>
-            </div>
+            <div class="form-field"><label>Başlangıç</label><input type="date" id="baslangicTarihi"></div>
+            <div class="form-field"><label>Gün Sayısı</label><input type="number" id="gunSayisi" value="14" min="1" max="90"></div>
+            <div class="form-field"><label>Hafızayı Kullan</label><select id="hafizaKullan"><option value="evet">Evet</option><option value="hayir">Hayır</option></select></div>
         </div>
-        <button id="takvimOlusturBtn" class="btn-primary">🎯 VARDİYA OLUŞTUR</button>
+        <button id="takvimOlusturBtn" class="btn-primary">🎯 BENZİNLİK VARDİYA OLUŞTUR</button>
     </div>
 
-    <div class="kart" id="tabloKarti" style="display: none;">
-        <div class="toolbar">
-            <span id="durumText">📋 Görüntüleme Modu</span>
+    <div class="kart" id="tabloKarti" style="display:none">
+        <div class="toolbar"><span id="durumText">📋 Görüntüleme Modu</span>
             <div class="btn-group">
-                <button id="duzenleBtn" class="btn-edit">✏️ Düzenleme Modu</button>
-                <button id="kaydetBtn" class="btn-save" style="display:none">💾 Değişiklikleri Onayla</button>
-                <button id="iptalBtn" class="btn-cancel" style="display:none">❌ İptal Et</button>
-                <button id="excelIndirBtn" class="btn-excel">📊 Excel (XLSX)</button>
-                <button id="whatsappBtn" class="btn-whatsapp">📱 WhatsApp ile Paylaş</button>
-                <button id="printBtn" class="btn-print">🖨️ Yazdır / PDF</button>
+                <button id="duzenleBtn" class="btn-edit">✏️ Düzenle</button>
+                <button id="kaydetBtn" class="btn-save" style="display:none">💾 Onayla</button>
+                <button id="iptalBtn" class="btn-cancel" style="display:none">❌ İptal</button>
+                <button id="excelIndirBtn" class="btn-excel">📊 Excel</button>
+                <button id="whatsappBtn" class="btn-whatsapp">📱 WhatsApp</button>
+                <button id="printBtn" class="btn-print">🖨️ Yazdır</button>
+                <button id="sifirlaBtn" class="btn-cancel" style="background:#e74c3c;">🔄 Tümünü Sıfırla</button>
             </div>
         </div>
         <div id="kontrolMesaji"></div>
         <div id="tabloAlan" class="table-container"></div>
-        <div id="istatistikAlan" class="istatistik" style="display: none;"></div>
+        <div id="istatistikAlan" class="istatistik" style="display:none"></div>
     </div>
 
-    <div class="footer">
-        GÜZELEL PETROL A.Ş. | Kararlı Sistem | LocalStorage ile kalıcı veri
-    </div>
+    <div class="footer">GÜZELEL PETROL A.Ş. | Benzinlik + Market | © 2025</div>
 </div>
-
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="script.js"></script>

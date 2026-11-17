@@ -8,7 +8,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD93G1P_IkoqZ7mWLfpLr55sw5KaPD2kP4",
@@ -16,12 +15,10 @@
             projectId: "vardiya-sistemi-fe09f",
             storageBucket: "vardiya-sistemi-fe09f.firebasestorage.app",
             messagingSenderId: "754893454073",
-            appId: "1:754893454073:web:d692f66f34cc075c0f4028",
-            measurementId: "G-6W8C8ZT70D"
+            appId: "1:754893454073:web:d692f66f34cc075c0f4028"
         };
 
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
         const db = getFirestore(app);
 
         window.db = db;

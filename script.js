@@ -215,9 +215,74 @@ function oncekiGunVardiyalari(baslangic) {
     return onceki;
 }
 
-function vardiyaOlusturYeni(gunAdet, baslangic, hafizaKullan) {
+// Dönem öncesi (hafıza) toplam, gece ve hafta sonu yükü
+function gecmisSayaclari(baslangic) {
+    const g = {};
+    personeller.forEach(p => g[p.isim] = { toplam: 0, gece: 0, hs: 0 });
+    const sinir = tarihAnahtar(baslangic);
+    for (const h of vardiyaHafizasi) {
+        if (!g[h.personel] || tarihAnahtar(h.tarih) >= sinir) continue;
+        g[h.personel].toplam++;
+        if (h.vardiya === 'gece') g[h.personel].gece++;
+        if (h.haftasonu) g[h.personel].hs++;
+    }
+    return g;
+}
+
+// Personelin izin/kural nedeniyle çalışabildiği gün sayısı (en az 1)
+function musaitGunSayilari(tarihler) {
+    const m = {};
+    for (const p of personeller) {
+        m[p.isim] = Math.max(1, tarihler.filter(t =>
+            !izinKontrol(p.isim, t) && ['gece', 'sabah', 'aksam'].some(v => yetkinlikKontrol(p.isim, v) && kuralKontrol(p.isim, v, t))
+        ).length);
+    }
+    return m;
+}
+
+function rastgeleUretec(tohum) {
+    let a = tohum >>> 0;
+    return () => {
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// Adalet özeti: izin günleri hesaba katılarak normalize edilmiş fark değerleri ve 0-100 skor
+function adaletOzeti(vardiyalar) {
+    const tarihler = vardiyalar.map(v => new Date(v.tarih));
+    const musait = musaitGunSayilari(tarihler);
+    const d = {};
+    personeller.forEach(p => d[p.isim] = { toplam: 0, gece: 0, hs: 0 });
+    for (const v of vardiyalar) {
+        for (const tip of ['gece', 'sabah', 'aksam']) {
+            for (const n of (v[tip] || [])) {
+                if (!d[n]) continue;
+                d[n].toplam++;
+                if (tip === 'gece') d[n].gece++;
+                if (v.haftasonu) d[n].hs++;
+            }
+        }
+    }
+    const fark = (liste) => liste.length ? Math.max(...liste) - Math.min(...liste) : 0;
+    const gunAdet = vardiyalar.length;
+    const toplamFark = fark(personeller.map(p => d[p.isim].toplam * gunAdet / musait[p.isim]));
+    const hsFark = fark(personeller.map(p => d[p.isim].hs * gunAdet / musait[p.isim]));
+    const geceFark = fark(personeller.filter(p => yetkinlikKontrol(p.isim, 'gece')).map(p => d[p.isim].gece * gunAdet / musait[p.isim]));
+    const skor = Math.max(0, Math.round(100 - 6 * toplamFark - 6 * hsFark - 4 * geceFark));
+    return { toplamFark: +toplamFark.toFixed(1), hsFark: +hsFark.toFixed(1), geceFark: +geceFark.toFixed(1), skor, ceza: toplamFark * 3 + hsFark * 3 + geceFark * 2 };
+}
+
+function vardiyaUret(gunAdet, baslangic, hafizaKullan, deneme) {
+    const rng = rastgeleUretec(deneme * 7919 + 13);
     const sayac = {};
-    personeller.forEach(p => sayac[p.isim] = { gece: 0, sabah: 0, aksam: 0, toplam: 0 });
+    personeller.forEach(p => sayac[p.isim] = { gece: 0, sabah: 0, aksam: 0, toplam: 0, hs: 0 });
+    const gecmis = hafizaKullan ? gecmisSayaclari(baslangic) : null;
+    const gecmisDeger = (isim, alan) => gecmis ? gecmis[isim][alan] * 0.5 : 0;
+    const musait = musaitGunSayilari(Array.from({ length: gunAdet }, (_, i) => gunEkle(baslangic, i)));
+    const n = personeller.length;
     let onceki = hafizaKullan ? oncekiGunVardiyalari(baslangic) : {};
     // Personel yetmezse sırayla akşam ve sabah kadrosu azaltılır (gece her zaman 2 kişi olmalı)
     const slotSecenekleri = [
@@ -231,21 +296,30 @@ function vardiyaOlusturYeni(gunAdet, baslangic, hafizaKullan) {
 
     for (let gun = 0; gun < gunAdet; gun++) {
         const tarih = gunEkle(baslangic, gun);
+        const haftasonu = tarih.getDay() === 0 || tarih.getDay() === 6;
         let atama, kullanilan, dugum, slotlar;
+
+        // Düşük puan = öncelikli. İzin nedeniyle az müsait olanın yükü gün sayısına oranlanır.
+        const puanla = (p, idx, v) => {
+            const s = sayac[p.isim];
+            const oran = (s.toplam + gecmisDeger(p.isim, 'toplam')) / musait[p.isim];
+            const gecePuan = v === 'gece' ? (s.gece + Math.min(gecmisDeger(p.isim, 'gece'), 3)) / musait[p.isim] * 1500 : s[v] * 10;
+            const hsPuan = haftasonu ? (s.hs + gecmisDeger(p.isim, 'hs')) * 60 : 0;
+            const sira = deneme === 0 ? ((idx - gun) % n + n) % n : rng() * n;
+            return oran * 1000 + gecePuan + hsPuan + sira;
+        };
 
         const coz = (i) => {
             if (i === slotlar.length) return true;
             if (++dugum > 50000) return false;
             const v = slotlar[i];
-            const kadinSayisi = atama[v].filter(n => personelBul(n).cinsiyet === "K").length;
+            const kadinSayisi = atama[v].filter(x => personelBul(x).cinsiyet === "K").length;
             const adaylar = personeller
                 .map((p, idx) => ({ p, idx }))
                 .filter(({ p }) => !kullanilan.has(p.isim) && calisabilir(p.isim, v, tarih, onceki)
                     && !(p.cinsiyet === "K" && kadinSayisi >= MAX_KADIN))
-                .sort((a, b) => {
-                    const puan = ({ p, idx }) => sayac[p.isim].toplam * 100 + sayac[p.isim][v] * 10 + ((idx - gun) % personeller.length + personeller.length) % personeller.length;
-                    return puan(a) - puan(b);
-                });
+                .map(({ p, idx }) => ({ p, puan: puanla(p, idx, v) }))
+                .sort((a, b) => a.puan - b.puan);
             for (const { p } of adaylar) {
                 atama[v].push(p.isim);
                 kullanilan.add(p.isim);
@@ -271,7 +345,10 @@ function vardiyaOlusturYeni(gunAdet, baslangic, hafizaKullan) {
 
         const yeniOnceki = {};
         for (const v of ['gece', 'sabah', 'aksam']) {
-            for (const n of atama[v]) { sayac[n][v]++; sayac[n].toplam++; yeniOnceki[n] = v; }
+            for (const x of atama[v]) {
+                sayac[x][v]++; sayac[x].toplam++; yeniOnceki[x] = v;
+                if (haftasonu) sayac[x].hs++;
+            }
         }
         onceki = yeniOnceki;
 
@@ -280,11 +357,23 @@ function vardiyaOlusturYeni(gunAdet, baslangic, hafizaKullan) {
             gece: atama.gece,
             sabah: atama.sabah,
             aksam: atama.aksam,
-            izinli: personeller.map(p => p.isim).filter(n => !yeniOnceki[n]),
-            haftasonu: tarih.getDay() === 0 || tarih.getDay() === 6
+            izinli: personeller.map(p => p.isim).filter(x => !yeniOnceki[x]),
+            haftasonu
         });
     }
     return { vardiyalar, uyarilar };
+}
+
+// Birden fazla deneme üretir; eksik kadro az ve adalet cezası düşük olanı seçer.
+function vardiyaOlusturYeni(gunAdet, baslangic, hafizaKullan, denemeSayisi = Math.max(6, Math.round(600 / gunAdet))) {
+    let en = null, enPuan = Infinity;
+    for (let d = 0; d < denemeSayisi; d++) {
+        const r = vardiyaUret(gunAdet, baslangic, hafizaKullan, d);
+        if (r.hata) return r;
+        const puan = r.uyarilar.length * 1000 + adaletOzeti(r.vardiyalar).ceza;
+        if (puan < enPuan) { enPuan = puan; en = r; }
+    }
+    return en;
 }
 
 function benzinlikParametreleri() {
@@ -612,7 +701,10 @@ function istatistikGoster(vardiyalar) {
             }
         }
     }
-    let html = `<h3>📊 PERSONEL ÇALIŞMA İSTATİSTİKLERİ (${vardiyalar.length} Gün)</h3><div class="istatistik-grid">`;
+    const adalet = adaletOzeti(vardiyalar);
+    let html = `<h3>📊 PERSONEL ÇALIŞMA İSTATİSTİKLERİ (${vardiyalar.length} Gün)</h3>
+        <div class="basarili" style="margin-bottom:12px">⚖️ Adalet skoru: <strong>${adalet.skor}/100</strong> — Toplam vardiya farkı: ${adalet.toplamFark} | Hafta sonu farkı: ${adalet.hsFark} | Gece farkı: ${adalet.geceFark} <span style="font-size:11px">(izin günlerine göre normalize)</span></div>
+        <div class="istatistik-grid">`;
     for (const [isim, d] of Object.entries(calisma)) {
         const cins = personelBul(isim)?.cinsiyet;
         const ort = (d.toplam / vardiyalar.length).toFixed(1);

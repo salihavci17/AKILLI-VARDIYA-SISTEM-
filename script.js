@@ -941,7 +941,7 @@ function marketGunCalisanlari(tarih, izinliIsim, sayac) {
     return calisan;
 }
 
-function marketGunuKur(tarih, calisanlar, izinli, onceki, sayac, ekKisit = () => true) {
+function marketGunuKur(tarih, calisanlar, izinli, onceki, sayac, ekKisit = () => true, kesinKisit = false) {
     const slotlar = calisanlar.length >= 3 ? ['gece8', 'sabah8', 'aksam8'] : ['gece12', 'gunduz12'];
     const yetkinSlot = (k) => k.startsWith('gece') ? 'gece' : 'gunduz';
     const adaylar = permutasyonlar(calisanlar.slice(0, slotlar.length));
@@ -949,10 +949,10 @@ function marketGunuKur(tarih, calisanlar, izinli, onceki, sayac, ekKisit = () =>
     const yetkinOk = (perm) => perm.every((p, i) => marketYetkin(p, yetkinSlot(slotlar[i])));
     const secenekler = [
         adaylar.filter(p => dinlenmeOk(p) && yetkinOk(p)),
-        adaylar.filter(dinlenmeOk),
-        adaylar
+        ...(kesinKisit ? [] : [adaylar.filter(dinlenmeOk), adaylar])
     ];
-    const havuz = secenekler.find(h => h.length) || adaylar;
+    const havuz = secenekler.find(h => h.length) || [];
+    if (!havuz.length) return null;
     const saatDegeri = (p) => sayac[p.isim] || { saat: 0, geceSaat: 0 };
     // Saat bazlı denge: toplam ve gece saatlerinin karelerini en aza indirir
     let en = null, enPuan = Infinity;
@@ -985,6 +985,7 @@ function marketAtanmayanGeciciler(vardiyalar) {
 }
 
 function marketTakvimindeGeciciEksigi(vardiyalar) {
+    if (vardiyalar.some(v => Object.values(marketAlanlari(v)).some(arr => arr.some(p => p.odunc)))) return false;
     const atanmayanlar = new Set(marketAtanmayanGeciciler(vardiyalar));
     return marketPersoneller.some(p => atanmayanlar.has(p.isim)
         && vardiyalar.some(v => v.tip === "izin_gunu" && geciciMusait(p, v.tarih)));
@@ -1149,16 +1150,22 @@ function marketTabloyuGoster(vardiyalar) {
             html += `<td class="market-gece">${marketEtiket(v.gecePersonel, i, 'gece12', '00:00-12:00')}</td>`;
             html += `<td class="market-gunduz" colspan="2">${marketEtiket(v.gunduzPersonel, i, 'gunduz12', '12:00-00:00')}</td>`;
         }
-        html += `<td style="background:#fdedec;" class="market-izinli-td">${v.izinli ? `<span class="market-izinli-etiket" data-gun="${i}" data-izinli="${esc(v.izinli.isim)}">📌 ${esc(v.izinli.isim)}</span>` : '—'}${izinGunu && marketDuzenlemeModu ? `<br><button class="market-odunc-btn" data-gun="${i}" style="margin-top:5px; padding:2px 8px; font-size:10px;">➕ Benzinlikten personel</button>` : ''}</td></tr>`;
+        html += `<td style="background:#fdedec;" class="market-izinli-td">${v.izinli ? `<span class="market-izinli-etiket" data-gun="${i}" data-izinli="${esc(v.izinli.isim)}">📌 ${esc(v.izinli.isim)}</span>` : '—'}${izinGunu ? `<br><button type="button" class="market-odunc-btn" data-gun="${i}">➕ Benzinlikten ödünç ekle</button>` : ''}</td></tr>`;
     });
     $('marketTabloAlan').innerHTML = `<div class="basarili" style="margin-bottom:10px">${esc(marketSaatOzeti(vardiyalar))}</div>` + html + `</tbody></table>`;
+    document.querySelectorAll('.market-odunc-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const gun = btn.dataset.gun;
+            if (!marketDuzenlemeModu) marketDuzenlemeModunuAc();
+            const guncelBtn = document.querySelector(`.market-odunc-btn[data-gun="${gun}"]`);
+            if (guncelBtn) marketOduncEkleDropdown(guncelBtn);
+        });
+    });
     if (!marketDuzenlemeModu) return;
     document.querySelectorAll('.market-personel-etiket').forEach(span => {
         span.style.cursor = 'pointer';
         span.addEventListener('click', (e) => { e.stopPropagation(); marketAcDropdown(span); });
-    });
-    document.querySelectorAll('.market-odunc-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); marketOduncEkleDropdown(btn); });
     });
     document.querySelectorAll('.market-izinli-etiket').forEach(el => {
         el.style.cursor = 'pointer';
@@ -1247,35 +1254,46 @@ function marketAcDropdown(span) {
 function marketOduncKaldir(gun) {
     const v = marketVardiyalarGuncel[gun];
     const onceki = marketOncekiVardiyalar(marketVardiyalarGuncel[gun - 1]);
-    const sayac = marketSayac();
-    marketVardiyalarGuncel[gun] = marketGunuKur(v.tarih, marketGunCalisanlari(v.tarih, v.izinli?.isim, sayac), v.izinli, onceki, sayac);
+    const yarin = marketOncekiVardiyalar(marketVardiyalarGuncel[gun + 1]);
+    const calisanlar = Object.values(marketAlanlari(v)).flat().filter(p => !p.odunc);
+    const yeni = marketGunuKur(v.tarih, calisanlar, v.izinli, onceki, marketSayac(),
+        (p, slot) => dinlenmeYeterli(slot, yarin[p.isim]), true);
+    if (!yeni) { alert('Ödünç personel kaldırılamadı: kalan personel için komşu günlerle uyumlu vardiya bulunamadı.'); return; }
+    marketVardiyalarGuncel[gun] = yeni;
     marketDegisti('✏️ Ödünç personel kaldırıldı. Onaylayın.');
+}
+
+function marketOduncYerlesimi(gun, p) {
+    const v = marketVardiyalarGuncel[gun];
+    const onceki = marketOncekiVardiyalar(marketVardiyalarGuncel[gun - 1]);
+    const yarin = marketOncekiVardiyalar(marketVardiyalarGuncel[gun + 1]);
+    const odunc = { isim: p.isim, cinsiyet: p.cinsiyet, yetkinlik: 'ikisi_de', odunc: true };
+    const kisit = (kisi, slot) => dinlenmeYeterli(slot, yarin[kisi.isim])
+        && (!kisi.odunc || !benzinlikCakisma(kisi.isim, v.tarih, slot));
+    return marketGunuKur(v.tarih, [v.gecePersonel, v.gunduzPersonel, odunc], v.izinli, onceki, marketSayac(), kisit, true);
 }
 
 // İzin günündeki 2 kişilik kadroya benzinlikten bir personel ekleyip 3 kişilik 8 saatlik düzene geçer
 function marketOduncEkleDropdown(btn) {
     const gun = parseInt(btn.dataset.gun);
     const v = marketVardiyalarGuncel[gun];
-    const calisan = [v.gecePersonel, v.gunduzPersonel];
+    const eksik = [-1, 0, 1].some(n => !vardiyalarGuncel.some(b => tarihAnahtar(b.tarih) === tarihAnahtar(gunEkle(v.tarih, n))));
+    if (eksik) {
+        alert('Önce seçilen gün ile bir önceki ve sonraki günü kapsayan benzinlik vardiyası oluşturun. Böylece çakışma ve dinlenme kontrolü yapılabilir.');
+        return;
+    }
     const adaylar = personeller.filter(p => !marketPersoneller.some(m => m.isim === p.isim)
-        && ['gece8', 'sabah8', 'aksam8'].some(k => !benzinlikCakisma(p.isim, v.tarih, k)));
-    if (!adaylar.length) { alert('Bu gün için müsait benzinlik personeli yok.'); return; }
+        && marketOduncYerlesimi(gun, p));
+    if (!adaylar.length) { alert('Bu gün için benzinlik, yetkinlik ve dinlenme koşullarına uygun ödünç personel bulunamadı.'); return; }
     menuAc(btn, adaylar.map(p => ({
         metin: `➕ ${p.isim} (benzinlik)`,
-        islem: () => marketOduncEkle(gun, p, calisan)
+        islem: () => marketOduncEkle(gun, p)
     })), 'market-personel-dropdown');
 }
 
-function marketOduncEkle(gun, p, calisan) {
-    const v = marketVardiyalarGuncel[gun];
-    const onceki = marketOncekiVardiyalar(marketVardiyalarGuncel[gun - 1]);
-    const odunc = { isim: p.isim, cinsiyet: p.cinsiyet, yetkinlik: 'ikisi_de', odunc: true };
-    // Benzinlik vardiyalarıyla dinlenme çakışmayan ilk uygun yerleşimi seçer
-    const kisit = (kisi, slot) => !kisi.odunc || !benzinlikCakisma(kisi.isim, v.tarih, slot);
-    const yeni = marketGunuKur(v.tarih, [...calisan, odunc], v.izinli, onceki, marketSayac(), kisit);
-    const k = Object.entries(marketAlanlari(yeni)).find(([, arr]) => arr[0]?.odunc)?.[0];
-    const neden = benzinlikCakisma(p.isim, v.tarih, k);
-    if (neden) { alert(`${p.isim} markete yazılamaz: ${neden}.`); return; }
+function marketOduncEkle(gun, p) {
+    const yeni = marketOduncYerlesimi(gun, p);
+    if (!yeni) { alert(`${p.isim} için çakışmasız vardiya bulunamadı.`); return; }
     marketVardiyalarGuncel[gun] = yeni;
     marketDegisti(`✏️ ${p.isim} benzinlikten markete ödünç eklendi. Onaylayın.`);
 }
@@ -1292,6 +1310,10 @@ function marketIzinliSecimDropdown(el) {
 function marketIzinliDegistir(gun, yeniIzinliIsim) {
     const onceki = marketOncekiVardiyalar(marketVardiyalarGuncel[gun - 1]);
     const v = marketVardiyalarGuncel[gun];
+    if (Object.values(marketAlanlari(v)).some(arr => arr.some(p => p.odunc))) {
+        alert('İzinliyi değiştirmeden önce o günün ödünç personel kaydını kaldırın.');
+        return;
+    }
     const izinli = marketKalici().find(p => p.isim === yeniIzinliIsim);
     const sayac = marketSayac();
     marketVardiyalarGuncel[gun] = marketGunuKur(v.tarih, marketGunCalisanlari(v.tarih, yeniIzinliIsim, sayac), izinli, onceki, sayac);

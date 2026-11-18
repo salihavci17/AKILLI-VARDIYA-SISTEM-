@@ -40,7 +40,8 @@
         <div class="market-uyari">
             📌 Her personelin haftalık izin günü kendine özeldir.<br>
             Normal gün: 3 kişi 8 saat (00-08, 08-16, 16-00)<br>
-            İzin günü: Kalan 2 kişi 12 saat çalışır (00-12, 12-00)
+            İzin günü: Kalan 2 kişi 12 saat çalışır (00-12, 12-00)<br>
+            Geçici personel çalışabileceği günlerde izin günü açığını kapatır; düzenleme modunda benzinlikten ödünç personel de eklenebilir.
         </div>
         <div class="form-row">
             <input type="text" id="marketYeniIsim" placeholder="Personel adı">
@@ -52,6 +53,11 @@
                 <option value="1">Pazartesi</option><option value="2">Salı</option><option value="3">Çarşamba</option>
                 <option value="4">Perşembe</option><option value="5">Cuma</option><option value="6">Cumartesi</option><option value="0">Pazar</option>
             </select>
+            <select id="marketKadro"><option value="kalici">Kalıcı kadro</option><option value="gecici">Geçici (belirli günler)</option></select>
+            <span id="marketGeciciAlan" style="display:none; gap:8px; align-items:center;">
+                <input type="date" id="marketGeciciBas" title="Çalışabileceği ilk gün">
+                <input type="date" id="marketGeciciBit" title="Çalışabileceği son gün">
+            </span>
             <button id="marketEkleBtn" class="btn-secondary">➕ Ekle</button>
         </div>
         <div id="marketPersonelListesi" class="personel-container"></div>

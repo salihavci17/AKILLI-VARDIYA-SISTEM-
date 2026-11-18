@@ -922,6 +922,11 @@ function marketOncekiVardiyalar(v) {
 
 function marketKalici() { return marketPersoneller.filter(p => !p.gecici); }
 
+function marketOtomatikIzinGunu() {
+    const kullanilan = new Set(marketKalici().map(p => p.izinGunu));
+    return [1, 2, 3, 4, 5, 6, 0].find(gun => !kullanilan.has(gun));
+}
+
 function geciciMusait(p, tarih) {
     const t = tarihAnahtar(tarih);
     return !!p.gecici && t >= p.baslangic && t <= p.bitis;
@@ -970,6 +975,19 @@ function marketGunuKur(tarih, calisanlar, izinli, onceki, sayac, ekKisit = () =>
         return { tarih, tip: "izin_gunu", gecePersonel: en[0], gunduzPersonel: en[1], izinli };
     }
     return { tarih, tip: "normal", gece8: [en[0]], sabah8: [en[1]], aksam8: [en[2]], izinli };
+}
+
+function marketAtanmayanGeciciler(vardiyalar) {
+    const atananlar = new Set(vardiyalar.flatMap(v => Object.keys(marketOncekiVardiyalar(v))));
+    return marketPersoneller
+        .filter(p => p.gecici && !atananlar.has(p.isim))
+        .map(p => p.isim);
+}
+
+function marketTakvimindeGeciciEksigi(vardiyalar) {
+    const atanmayanlar = new Set(marketAtanmayanGeciciler(vardiyalar));
+    return marketPersoneller.some(p => atanmayanlar.has(p.isim)
+        && vardiyalar.some(v => v.tip === "izin_gunu" && geciciMusait(p, v.tarih)));
 }
 
 // Benzinlikten markete ödünç verilen personelin o günkü market vardiyası ({isim: vardiyaAnahtarı})
@@ -1083,15 +1101,13 @@ async function marketPersonelEkle() {
         Object.assign(kisi, { gecici: true, baslangic: bas, bitis: bit });
     } else {
         if (marketKalici().length >= 3) { alert("Kalıcı kadro en fazla 3 kişi olabilir. Ek ihtiyaç için geçici personel ekleyin."); return; }
-        const izinGunu = parseInt($('marketIzinGunu').value);
-        if (marketKalici().some(p => p.izinGunu === izinGunu)) { alert("Bu izin günü başka bir personele ait. Her personelin izin günü farklı olmalı."); return; }
-        kisi.izinGunu = izinGunu;
+        kisi.izinGunu = marketOtomatikIzinGunu();
     }
     marketPersoneller.push(kisi);
     $('marketYeniIsim').value = '';
     marketPersonelListesiniGoster();
     await veriKaydet();
-    await marketTakvimOlustur(true);
+    await marketKadroDegisinceYenile();
 }
 
 window.marketPersonelSil = async function (idx) {
@@ -1099,8 +1115,15 @@ window.marketPersonelSil = async function (idx) {
     marketPersoneller.splice(idx, 1);
     marketPersonelListesiniGoster();
     await veriKaydet();
-    await marketTakvimOlustur(true);
+    await marketKadroDegisinceYenile();
 };
+
+async function marketKadroDegisinceYenile() {
+    await marketTakvimOlustur(true);
+    if (!marketVardiyalarGuncel.length) return;
+    await marketTakvimiKaydet();
+    mesajGoster('marketKontrolMesaji', 'basarili', '✅ Kadro değişti; market vardiyası yenilendi ve kaydedildi.');
+}
 
 function marketEtiket(p, gun, vardiya, saat) {
     const not = p.odunc ? ' 🔁<small>(ödünç)</small>' : p.gecici ? ' ⏱️<small>(geçici)</small>' : '';
@@ -1278,16 +1301,18 @@ function marketIzinliDegistir(gun, yeniIzinliIsim) {
 async function marketTakvimOlustur(zorla = false) {
     if (marketDuzenlemeModu) marketDuzenlemeModunuKapat();
     const { hafta, baslangic } = marketParametreleri();
-    if (zorla !== true) {
+    let kayitliTakvimYenilenecek = false;
+    if (zorla !== true && zorla !== 'kullanici') {
         const kayitli = await takvimOku("guzelel_market_takvim", "market_takvimler", baslangic, hafta);
         const v = kayitli ? marketNormalize(kayitli) : null;
-        if (v) {
+        if (v && !marketTakvimindeGeciciEksigi(v)) {
             marketVardiyalarGuncel = v;
             marketTabloyuGoster(v);
             $('marketTabloWrapper').style.display = 'block';
             mesajGoster('marketKontrolMesaji', 'basarili', '✅ Kayıtlı market takvimi yüklendi.');
             return;
         }
+        kayitliTakvimYenilenecek = !!v;
     }
     const sonuc = marketVardiyaOlustur(hafta, baslangic);
     if (sonuc.hata) {
@@ -1300,7 +1325,14 @@ async function marketTakvimOlustur(zorla = false) {
     marketVardiyalarGuncel = sonuc.vardiyalar;
     marketTabloyuGoster(marketVardiyalarGuncel);
     $('marketTabloWrapper').style.display = 'block';
-    mesajGoster('marketKontrolMesaji', 'basarili', '✅ Market vardiyaları oluşturuldu. Kaydetmek için Düzenle → Onayla.');
+    if (kayitliTakvimYenilenecek) await marketTakvimiKaydet();
+    const atanmayanlar = marketAtanmayanGeciciler(marketVardiyalarGuncel);
+    const mesaj = atanmayanlar.length
+        ? `⚠️ ${atanmayanlar.join(', ')} vardiyaya yazılmadı: bu takvimde uygun izin günü bulunmadı.`
+        : kayitliTakvimYenilenecek
+            ? '✅ Geçici kadro takvime eklendi ve kaydedildi.'
+            : '✅ Market vardiyaları oluşturuldu. Kaydetmek için Düzenle → Onayla.';
+    mesajGoster('marketKontrolMesaji', atanmayanlar.length ? 'uyari' : 'basarili', mesaj);
 }
 
 function marketDuzenlemeModunuAc() {
@@ -1323,12 +1355,19 @@ function marketDuzenlemeModunuKapat() {
     marketTabloyuGoster(marketVardiyalarGuncel);
 }
 
-async function marketDegisiklikleriKaydet() {
-    const { hafta, baslangic } = marketParametreleri();
-    const saklanacak = marketVardiyalarGuncel.map(v => v.tip === "normal"
+function marketKayitVerisi() {
+    return marketVardiyalarGuncel.map(v => v.tip === "normal"
         ? { tip: "normal", tarih: v.tarih.toISOString(), gece8: v.gece8, sabah8: v.sabah8, aksam8: v.aksam8, izinli: v.izinli }
         : { tip: "izin_gunu", tarih: v.tarih.toISOString(), gecePersonel: v.gecePersonel, gunduzPersonel: v.gunduzPersonel, izinli: v.izinli });
-    await takvimKaydet("guzelel_market_takvim", "market_takvimler", baslangic, hafta, saklanacak);
+}
+
+async function marketTakvimiKaydet() {
+    const { hafta, baslangic } = marketParametreleri();
+    await takvimKaydet("guzelel_market_takvim", "market_takvimler", baslangic, hafta, marketKayitVerisi());
+}
+
+async function marketDegisiklikleriKaydet() {
+    await marketTakvimiKaydet();
     marketDuzenlemeModunuKapat();
     mesajGoster('marketKontrolMesaji', 'basarili', '✅ Değişiklikler onaylandı ve kaydedildi.');
 }
@@ -1362,7 +1401,6 @@ function olaylariBagla() {
     $('marketKadro').addEventListener('change', function () {
         const gecici = this.value === 'gecici';
         $('marketGeciciAlan').style.display = gecici ? 'inline-flex' : 'none';
-        $('marketIzinGunu').style.display = gecici ? 'none' : '';
     });
     $('kuralTipi').addEventListener('change', function () {
         $('personelSecimDiv').style.display = this.value === 'personel' ? 'block' : 'none';

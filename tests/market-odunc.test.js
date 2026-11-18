@@ -78,7 +78,7 @@ test('sonraki market gününün dinlenme kuralı ve kayıtlı ödünç korunur',
     assert.equal(vm.runInContext('marketDinlenmeIhlali(0)', context), null);
     assert.notEqual(vm.runInContext("marketVardiyalarGuncel[0].aksam8[0].isim", context), 'A');
     vm.runInContext("marketPersoneller.push({ isim: 'G', gecici: true, baslangic: '2026-11-18', bitis: '2026-11-19' })", context);
-    assert.equal(vm.runInContext('marketTakvimindeGeciciEksigi(marketVardiyalarGuncel)', context), false);
+    assert.equal(vm.runInContext("marketNormalize(marketKayitVerisi())[0].tip", context), 'normal');
 });
 
 test('ödünç kaldırılınca iki kişilik izin günü geri gelir', () => {

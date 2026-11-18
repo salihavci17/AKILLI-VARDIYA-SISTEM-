@@ -399,7 +399,7 @@ button:hover {
 @media print {
     @page { size: landscape; margin: 1.5cm; }
     body { background: white; padding: 0; margin: 0; }
-    .toolbar, .btn-group, .footer, .personel-container, .form-row, .market-odunc-btn,
+    .toolbar, .btn-group, .footer, .personel-container, .form-row, .market-odunc-btn, .market-izinli-sec-btn,
     #izinListesi, #kuralListesi, .istatistik, .kart:not(:has(table)),
     #kontrolMesaji, .market-tablo-wrapper .toolbar, .btn-edit, .btn-save, .btn-cancel,
     .btn-excel, .btn-whatsapp, .btn-print, .btn-primary, .btn-secondary,

@@ -16,6 +16,7 @@ let originalVardiyalar = null;
 
 let marketVardiyalarGuncel = [];
 let marketDuzenlemeModu = false;
+let marketDuzenlemeOncesi = null;
 
 const GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const saatler = { gece: "00:00-08:00", sabah: "08:00-16:00", aksam: "16:00-00:00" };
@@ -984,13 +985,6 @@ function marketAtanmayanGeciciler(vardiyalar) {
         .map(p => p.isim);
 }
 
-function marketTakvimindeGeciciEksigi(vardiyalar) {
-    if (vardiyalar.some(v => Object.values(marketAlanlari(v)).some(arr => arr.some(p => p.odunc)))) return false;
-    const atanmayanlar = new Set(marketAtanmayanGeciciler(vardiyalar));
-    return marketPersoneller.some(p => atanmayanlar.has(p.isim)
-        && vardiyalar.some(v => v.tip === "izin_gunu" && geciciMusait(p, v.tarih)));
-}
-
 // Benzinlikten markete ödünç verilen personelin o günkü market vardiyası ({isim: vardiyaAnahtarı})
 function marketOduncHaritasi(tarih) {
     const t = tarihAnahtar(tarih);
@@ -1104,6 +1098,7 @@ async function marketPersonelEkle() {
         if (marketKalici().length >= 3) { alert("Kalıcı kadro en fazla 3 kişi olabilir. Ek ihtiyaç için geçici personel ekleyin."); return; }
         kisi.izinGunu = marketOtomatikIzinGunu();
     }
+    if (marketVardiyalarGuncel.length && !confirm('Personel eklendiğinde bu market çizelgesi yeniden oluşturulup kaydedilecek; elle yapılan değişiklikler kaybolacak. Devam edilsin mi?')) return;
     marketPersoneller.push(kisi);
     $('marketYeniIsim').value = '';
     marketPersonelListesiniGoster();
@@ -1112,7 +1107,8 @@ async function marketPersonelEkle() {
 }
 
 window.marketPersonelSil = async function (idx) {
-    if (!confirm(`${marketPersoneller[idx].isim} silinsin mi?`)) return;
+    const uyari = marketVardiyalarGuncel.length ? ' Market çizelgesi değişebilir ve elle yapılan değişiklikler kaybolabilir.' : '';
+    if (!confirm(`${marketPersoneller[idx].isim} silinsin mi?${uyari}`)) return;
     marketPersoneller.splice(idx, 1);
     marketPersonelListesiniGoster();
     await veriKaydet();
@@ -1150,7 +1146,7 @@ function marketTabloyuGoster(vardiyalar) {
             html += `<td class="market-gece">${marketEtiket(v.gecePersonel, i, 'gece12', '00:00-12:00')}</td>`;
             html += `<td class="market-gunduz" colspan="2">${marketEtiket(v.gunduzPersonel, i, 'gunduz12', '12:00-00:00')}</td>`;
         }
-        html += `<td style="background:#fdedec;" class="market-izinli-td">${v.izinli ? `<span class="market-izinli-etiket" data-gun="${i}" data-izinli="${esc(v.izinli.isim)}">📌 ${esc(v.izinli.isim)}</span>` : '—'}${izinGunu ? `<br><button type="button" class="market-odunc-btn" data-gun="${i}">➕ Benzinlikten ödünç ekle</button>` : ''}</td></tr>`;
+        html += `<td style="background:#fdedec;" class="market-izinli-td">${v.izinli ? `<span class="market-izinli-etiket" data-gun="${i}" data-izinli="${esc(v.izinli.isim)}">📌 ${esc(v.izinli.isim)}</span>` : marketDuzenlemeModu ? `<button type="button" class="market-izinli-sec-btn" data-gun="${i}">➕ İzinli seç</button>` : '—'}${izinGunu ? `<br><button type="button" class="market-odunc-btn" data-gun="${i}">➕ Benzinlikten ödünç ekle</button>` : ''}</td></tr>`;
     });
     $('marketTabloAlan').innerHTML = `<div class="basarili" style="margin-bottom:10px">${esc(marketSaatOzeti(vardiyalar))}</div>` + html + `</tbody></table>`;
     document.querySelectorAll('.market-odunc-btn').forEach(btn => {
@@ -1170,6 +1166,9 @@ function marketTabloyuGoster(vardiyalar) {
     document.querySelectorAll('.market-izinli-etiket').forEach(el => {
         el.style.cursor = 'pointer';
         el.addEventListener('click', (e) => { e.stopPropagation(); marketIzinliSecimDropdown(el); });
+    });
+    document.querySelectorAll('.market-izinli-sec-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); marketIzinliSecimDropdown(btn); });
     });
 }
 
@@ -1213,41 +1212,75 @@ function marketAlanlari(v) {
         : { gece12: [v.gecePersonel], gunduz12: [v.gunduzPersonel] };
 }
 
-// Seçilen personel yerine aynı gün çalışan başka bir personelle yer değiştirir.
-function marketAcDropdown(span) {
-    if (!marketDuzenlemeModu) return;
-    const eski = span.dataset.p;
-    const gun = parseInt(span.dataset.gun);
-    const vardiya = span.dataset.vardiya;
+function marketGunDogrula(gun, v) {
+    const onceki = marketOncekiVardiyalar(marketVardiyalarGuncel[gun - 1]);
+    const yarin = marketOncekiVardiyalar(marketVardiyalarGuncel[gun + 1]);
+    const isimler = new Set();
+    for (const [slot, kisiler] of Object.entries(marketAlanlari(v))) {
+        const p = kisiler[0];
+        if (!p || isimler.has(p.isim) || p.isim === v.izinli?.isim) return 'Bir personel aynı gün birden fazla yerde olamaz.';
+        isimler.add(p.isim);
+        if (p.gecici && !geciciMusait(p, v.tarih)) return `${p.isim} bu tarihte çalışmaya müsait değil.`;
+        if (!marketYetkin(p, slot.startsWith('gece') ? 'gece' : 'gunduz')) return `${p.isim} bu vardiya için yetkin değil.`;
+        if (!dinlenmeYeterli(onceki[p.isim], slot) || !dinlenmeYeterli(slot, yarin[p.isim])) return `${p.isim} için komşu günlerle en az ${MIN_DINLENME_SAATI} saat dinlenme sağlanamıyor.`;
+        if (p.odunc) {
+            const eksik = [-1, 0, 1].some(n => !vardiyalarGuncel.some(b => tarihAnahtar(b.tarih) === tarihAnahtar(gunEkle(v.tarih, n))));
+            if (eksik) return 'Ödünç personel için benzinlik çizelgesi seçilen gün ile önceki ve sonraki günü kapsamalı.';
+            const neden = benzinlikCakisma(p.isim, v.tarih, slot);
+            if (neden) return `${p.isim}: ${neden}.`;
+        }
+    }
+    return null;
+}
+
+function marketSlotYaz(v, slot, kisi) {
+    if (v.tip === 'normal') v[slot] = [kisi];
+    else if (slot === 'gece12') v.gecePersonel = kisi;
+    else v.gunduzPersonel = kisi;
+}
+
+function marketVardiyaKisiDegistir(gun, slot, kisi) {
     const v = marketVardiyalarGuncel[gun];
     const alanlar = marketAlanlari(v);
-    const diger = Object.entries(alanlar).filter(([k]) => k !== vardiya).map(([k, arr]) => [k, arr[0]]);
-    const secenekler = [];
-    if (alanlar[vardiya][0]?.odunc) {
-        secenekler.push({ metin: `↩ ${eski} ödünç kaydını kaldır`, islem: () => marketOduncKaldir(gun) });
-    }
-    menuAc(span, [...secenekler, ...diger.map(([anahtar, kisi]) => ({
-        metin: `🔄 ${kisi.isim} ile yer değiştir`,
-        islem: () => {
-            const benim = alanlar[vardiya][0];
-            const yaz = (k, p) => {
-                if (v.tip === "normal") v[k] = [p];
-                else if (k === 'gece12') v.gecePersonel = p;
-                else v.gunduzPersonel = p;
-            };
-            yaz(vardiya, kisi);
-            yaz(anahtar, benim);
-            const oduncIhlali = Object.entries(marketAlanlari(v)).map(([k, arr]) => arr[0]?.odunc && benzinlikCakisma(arr[0].isim, v.tarih, k) ? `${arr[0].isim} ${benzinlikCakisma(arr[0].isim, v.tarih, k)}` : null).find(Boolean);
-            const ihlal = marketDinlenmeIhlali(gun) || oduncIhlali;
-            if (ihlal) {
-                yaz(vardiya, benim);
-                yaz(anahtar, kisi);
-                alert('Yer değiştirme yapılamadı: ' + ihlal);
-                return;
-            }
-            marketDegisti('✏️ Değişiklik yapıldı. Onaylayın.');
+    const eski = alanlar[slot][0];
+    const digerSlot = Object.keys(alanlar).find(k => k !== slot && alanlar[k][0].isim === kisi.isim);
+    const yeni = { ...v };
+    if (digerSlot) {
+        marketSlotYaz(yeni, digerSlot, eski);
+    } else if (v.izinli?.isim === kisi.isim) {
+        if (v.tip === 'izin_gunu' && (eski.gecici || eski.odunc)) {
+            alert('İzinliyi kaldırmak için izinli hücresindeki menüyü kullanın.');
+            return;
         }
-    }))], 'market-personel-dropdown');
+        if (eski.gecici || eski.odunc) yeni.izinli = null;
+        else yeni.izinli = eski;
+    } else if (!eski.gecici && !eski.odunc) {
+        if (v.izinli) { alert('Bu gün zaten bir izinli var. Önce izinliyi değiştirin.'); return; }
+        yeni.izinli = eski;
+    }
+    if (eski.odunc && !digerSlot && !confirm(`${eski.isim} ödünç vardiyasından çıkarılsın mı?`)) return;
+    marketSlotYaz(yeni, slot, kisi);
+    const hata = marketGunDogrula(gun, yeni);
+    if (hata) { alert('Değişiklik yapılamadı: ' + hata); return; }
+    marketVardiyalarGuncel[gun] = yeni;
+    marketDegisti('✏️ Vardiya değiştirildi. Onaylayın.');
+}
+
+function marketAcDropdown(span) {
+    if (!marketDuzenlemeModu) return;
+    const gun = parseInt(span.dataset.gun);
+    const slot = span.dataset.vardiya;
+    const v = marketVardiyalarGuncel[gun];
+    const eski = marketAlanlari(v)[slot][0];
+    const secenekler = [];
+    if (eski.odunc) secenekler.push({ metin: `↩ ${eski.isim} ödünç kaydını kaldır`, islem: () => marketOduncKaldir(gun) });
+    const adaylar = [...marketPersoneller, ...Object.values(marketAlanlari(v)).flat().filter(p => p.odunc)]
+        .filter(p => p.isim !== eski.isim && (!p.gecici || geciciMusait(p, v.tarih)));
+    adaylar.forEach(p => secenekler.push({
+        metin: `🔄 ${p.isim}${p.gecici ? ' (geçici)' : p.odunc ? ' (ödünç)' : ''}`,
+        islem: () => marketVardiyaKisiDegistir(gun, slot, p)
+    }));
+    menuAc(span, secenekler, 'market-personel-dropdown');
 }
 
 // Ek personel eklenen günü, ek personel olmadan yeniden kurar
@@ -1300,41 +1333,49 @@ function marketOduncEkle(gun, p) {
 
 function marketIzinliSecimDropdown(el) {
     const gun = parseInt(el.dataset.gun);
-    const mevcut = el.dataset.izinli;
-    menuAc(el, marketKalici().filter(p => p.isim !== mevcut).map(p => ({
+    const mevcut = marketVardiyalarGuncel[gun].izinli;
+    const secenekler = marketKalici().filter(p => p.isim !== mevcut?.isim).map(p => ({
         metin: `📌 ${p.isim} (izinli yap)`,
         islem: () => marketIzinliDegistir(gun, p.isim)
-    })), 'market-personel-dropdown');
+    }));
+    if (mevcut) secenekler.push({ metin: '❌ İzinliyi kaldır', islem: () => marketIzinliDegistir(gun, null) });
+    menuAc(el, secenekler, 'market-personel-dropdown');
 }
 
 function marketIzinliDegistir(gun, yeniIzinliIsim) {
     const onceki = marketOncekiVardiyalar(marketVardiyalarGuncel[gun - 1]);
+    const yarin = marketOncekiVardiyalar(marketVardiyalarGuncel[gun + 1]);
     const v = marketVardiyalarGuncel[gun];
-    if (Object.values(marketAlanlari(v)).some(arr => arr.some(p => p.odunc))) {
-        alert('İzinliyi değiştirmeden önce o günün ödünç personel kaydını kaldırın.');
-        return;
-    }
-    const izinli = marketKalici().find(p => p.isim === yeniIzinliIsim);
+    const izinli = yeniIzinliIsim ? marketKalici().find(p => p.isim === yeniIzinliIsim) : null;
+    if (yeniIzinliIsim && !izinli) { alert('Seçilen kalıcı personel bulunamadı.'); return; }
+    const ekPersonel = Object.values(marketAlanlari(v)).flat().filter(p => p.odunc || p.gecici);
+    if (!izinli && ekPersonel.length && !confirm('İzinli kaldırılınca o günün geçici veya ödünç personeli vardiyadan çıkarılacak. Devam edilsin mi?')) return;
     const sayac = marketSayac();
-    marketVardiyalarGuncel[gun] = marketGunuKur(v.tarih, marketGunCalisanlari(v.tarih, yeniIzinliIsim, sayac), izinli, onceki, sayac);
+    const calisanlar = izinli && ekPersonel.length
+        ? [...marketKalici().filter(p => p.isim !== yeniIzinliIsim), ekPersonel[0]]
+        : marketGunCalisanlari(v.tarih, yeniIzinliIsim, sayac);
+    const kisit = (p, slot) => dinlenmeYeterli(slot, yarin[p.isim])
+        && (!p.odunc || !benzinlikCakisma(p.isim, v.tarih, slot));
+    const yeni = marketGunuKur(v.tarih, calisanlar, izinli, onceki, sayac, kisit, true);
+    const hata = yeni ? marketGunDogrula(gun, yeni) : 'Yetkinlik ve dinlenme koşullarına uygun vardiya bulunamadı.';
+    if (hata) { alert('İzinli değiştirilemedi: ' + hata); return; }
+    marketVardiyalarGuncel[gun] = yeni;
     marketDegisti('✏️ İzinli personel değiştirildi. Onaylayın.');
 }
 
 async function marketTakvimOlustur(zorla = false) {
     if (marketDuzenlemeModu) marketDuzenlemeModunuKapat();
     const { hafta, baslangic } = marketParametreleri();
-    let kayitliTakvimYenilenecek = false;
     if (zorla !== true && zorla !== 'kullanici') {
         const kayitli = await takvimOku("guzelel_market_takvim", "market_takvimler", baslangic, hafta);
         const v = kayitli ? marketNormalize(kayitli) : null;
-        if (v && !marketTakvimindeGeciciEksigi(v)) {
+        if (v) {
             marketVardiyalarGuncel = v;
             marketTabloyuGoster(v);
             $('marketTabloWrapper').style.display = 'block';
             mesajGoster('marketKontrolMesaji', 'basarili', '✅ Kayıtlı market takvimi yüklendi.');
             return;
         }
-        kayitliTakvimYenilenecek = !!v;
     }
     const sonuc = marketVardiyaOlustur(hafta, baslangic);
     if (sonuc.hata) {
@@ -1347,23 +1388,21 @@ async function marketTakvimOlustur(zorla = false) {
     marketVardiyalarGuncel = sonuc.vardiyalar;
     marketTabloyuGoster(marketVardiyalarGuncel);
     $('marketTabloWrapper').style.display = 'block';
-    if (kayitliTakvimYenilenecek) await marketTakvimiKaydet();
     const atanmayanlar = marketAtanmayanGeciciler(marketVardiyalarGuncel);
     const mesaj = atanmayanlar.length
         ? `⚠️ ${atanmayanlar.join(', ')} vardiyaya yazılmadı: bu takvimde uygun izin günü bulunmadı.`
-        : kayitliTakvimYenilenecek
-            ? '✅ Geçici kadro takvime eklendi ve kaydedildi.'
-            : '✅ Market vardiyaları oluşturuldu. Kaydetmek için Düzenle → Onayla.';
+        : '✅ Market vardiyaları oluşturuldu. Kaydetmek için Düzenle → Onayla.';
     mesajGoster('marketKontrolMesaji', atanmayanlar.length ? 'uyari' : 'basarili', mesaj);
 }
 
 function marketDuzenlemeModunuAc() {
     if (!marketVardiyalarGuncel.length) return;
+    marketDuzenlemeOncesi = kopya(marketVardiyalarGuncel);
     marketDuzenlemeModu = true;
     $('marketDuzenleBtn').style.display = 'none';
     $('marketKaydetBtn').style.display = 'inline-block';
     $('marketIptalBtn').style.display = 'inline-block';
-    $('marketDurumText').innerHTML = '✏️ DÜZENLEME MODU – Personel/izinliye tıklayın';
+    $('marketDurumText').innerHTML = '✏️ DÜZENLEME MODU – Vardiya personeline veya izinli alanına tıklayın';
     marketTabloyuGoster(marketVardiyalarGuncel);
 }
 
@@ -1395,8 +1434,10 @@ async function marketDegisiklikleriKaydet() {
 }
 
 async function marketDegisiklikleriIptal() {
+    if (marketDuzenlemeOncesi) {
+        marketVardiyalarGuncel = kopya(marketDuzenlemeOncesi).map(v => ({ ...v, tarih: new Date(v.tarih) }));
+    }
     marketDuzenlemeModunuKapat();
-    await marketTakvimOlustur();
     mesajGoster('marketKontrolMesaji', 'uyari', '🔄 İptal edildi.');
 }
 

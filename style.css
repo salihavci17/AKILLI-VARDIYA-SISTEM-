@@ -183,7 +183,7 @@ button:hover {
     border-collapse: collapse;
     font-size: 13px;
     background: white;
-    min-width: 900px;
+    min-width: 1200px;
 }
 .vardiya-tablosu th {
     background: #1e466e;
@@ -202,6 +202,10 @@ button:hover {
 .gece-hucre { background: #e6f7ff; }
 .sabah-hucre { background: #fff8e7; }
 .aksam-hucre { background: #feeef4; }
+.araSabah-hucre { background: #fff0f6; }
+.araAksam-hucre { background: #fce7f3; }
+.ara-ekle-btn { padding: 5px 8px; font-size: 10px; background: #b83280; }
+.ara-ekle-btn:hover { background: #97266a; }
 
 .personel-etiket {
     display: inline-block;
@@ -412,11 +416,13 @@ button:hover {
     .kart:first-of-type h2::before { content: "⛽ AKARYAKIT - "; font-weight: bold; }
     .kart:has(.market-tablo-wrapper) h2::before { content: "🏪 MARKET - "; font-weight: bold; }
     .table-container, .market-tablo-wrapper { border: none; overflow: visible; display: block !important; }
-    .vardiya-tablosu, .market-vardiya-tablosu { font-size: 9px; width: 100%; border-collapse: collapse; margin-top: 5px; }
+    .vardiya-tablosu, .market-vardiya-tablosu { font-size: 9px; width: 100%; min-width: 0; border-collapse: collapse; margin-top: 5px; }
     .vardiya-tablosu th, .vardiya-tablosu td, .market-vardiya-tablosu th, .market-vardiya-tablosu td { border: 1px solid #000 !important; padding: 3px; text-align: center; }
-    .gece-hucre, .sabah-hucre, .aksam-hucre, .market-gece, .market-gunduz, .market-aksam, .tarih-hucre { background: none !important; }
+    .gece-hucre, .sabah-hucre, .aksam-hucre, .araSabah-hucre, .araAksam-hucre,
+    .market-gece, .market-gunduz, .market-aksam, .tarih-hucre { background: none !important; }
     .personel-etiket, .market-personel-etiket { background: none !important; color: black !important; padding: 0 !important; font-weight: normal; display: inline; border: none; }
     .personel-etiket.erkek, .personel-etiket.kadin, .personel-etiket.izin,
     .market-personel-etiket.erkek, .market-personel-etiket.kadin { background: none !important; color: black !important; }
+    .ara-ekle-btn { display: none !important; }
     .saat-bilgisi, .izin-gunu-badge, .haftasonu-badge { display: none !important; }
 }

@@ -19,13 +19,20 @@ let marketDuzenlemeModu = false;
 let marketDuzenlemeOncesi = null;
 
 const GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-const saatler = { gece: "00:00-08:00", sabah: "08:00-16:00", aksam: "16:00-00:00" };
-const KAPASITE = { gece: 2, sabah: 3, aksam: 3 };
+const saatler = {
+    gece: "00:00-08:00",
+    araSabah: "07:00-15:00",
+    sabah: "08:00-16:00",
+    araAksam: "15:00-23:00",
+    aksam: "16:00-00:00"
+};
+const vardiyaTipleri = ['gece', 'araSabah', 'sabah', 'araAksam', 'aksam'];
+const KAPASITE = { gece: 2, araSabah: 1, sabah: 3, araAksam: 1, aksam: 3 };
 const MAX_KADIN = 2;
 
 // Vardiyalar saat aralığı olarak tanımlıdır: [başlangıç, bitiş] (gün içi saat, 24 = gece yarısı)
 const VARDIYA_SAATLERI = {
-    gece: [0, 8], sabah: [8, 16], aksam: [16, 24],
+    gece: [0, 8], araSabah: [7, 15], sabah: [8, 16], araAksam: [15, 23], aksam: [16, 24],
     gece8: [0, 8], sabah8: [8, 16], aksam8: [16, 24],
     gece12: [0, 12], gunduz12: [12, 24]
 };
@@ -96,13 +103,14 @@ function izinKontrol(isim, tarih) {
 
 function kuralKontrol(isim, vardiyaTipi, tarih) {
     const gun = tarih.getDay();
+    const anaVardiya = vardiyaTipi === 'araSabah' ? 'sabah' : vardiyaTipi === 'araAksam' ? 'aksam' : vardiyaTipi;
     for (const k of kurallar) {
         if (k.tip === "personel" && k.personel !== isim) continue;
-        if (k.kural === "sadece_sabah" && vardiyaTipi !== "sabah") return false;
-        if (k.kural === "sadece_aksam" && vardiyaTipi !== "aksam") return false;
-        if (k.kural === "sadece_gece" && vardiyaTipi !== "gece") return false;
-        if (k.kural === "gece_yasak" && vardiyaTipi === "gece") return false;
-        if (k.kural === "haftasonu_gece_yasak" && vardiyaTipi === "gece" && (gun === 0 || gun === 6)) return false;
+        if (k.kural === "sadece_sabah" && anaVardiya !== "sabah") return false;
+        if (k.kural === "sadece_aksam" && anaVardiya !== "aksam") return false;
+        if (k.kural === "sadece_gece" && anaVardiya !== "gece") return false;
+        if (k.kural === "gece_yasak" && anaVardiya === "gece") return false;
+        if (k.kural === "haftasonu_gece_yasak" && anaVardiya === "gece" && (gun === 0 || gun === 6)) return false;
         if (k.kural === "pazartesi_izin" && gun === 1) return false;
     }
     return true;
@@ -111,13 +119,15 @@ function kuralKontrol(isim, vardiyaTipi, tarih) {
 function yetkinlikKontrol(isim, vardiya) {
     const p = personelBul(isim);
     if (!p) return false;
+    if (vardiya.startsWith('ara') && p.cinsiyet !== "K") return false;
     if (vardiya === "gece" && p.cinsiyet === "K") return false;
+    const anaVardiya = vardiya === 'araSabah' ? 'sabah' : vardiya === 'araAksam' ? 'aksam' : vardiya;
     switch (p.yetkinlik) {
         case "hepsi": return true;
-        case "sabah_aksam": return vardiya === "sabah" || vardiya === "aksam";
-        case "sadece_sabah": return vardiya === "sabah";
-        case "sadece_aksam": return vardiya === "aksam";
-        case "sadece_gece": return vardiya === "gece";
+        case "sabah_aksam": return anaVardiya === "sabah" || anaVardiya === "aksam";
+        case "sadece_sabah": return anaVardiya === "sabah";
+        case "sadece_aksam": return anaVardiya === "aksam";
+        case "sadece_gece": return anaVardiya === "gece";
         default: return false;
     }
 }
@@ -138,7 +148,7 @@ function dinlenmeYeterli(oncekiVardiya, sonrakiVardiya) {
 
 function gundekiVardiya(v, isim) {
     if (!v) return null;
-    return ['gece', 'sabah', 'aksam'].find(t => (v[t] || []).includes(isim)) || null;
+    return vardiyaTipleri.find(t => (v[t] || []).includes(isim)) || null;
 }
 
 // onceki: dünkü vardiya ({isim: vardiya}). İki vardiya arası en az MIN_DINLENME_SAATI saat olmalı.
@@ -267,7 +277,8 @@ function musaitGunSayilari(tarihler) {
     const m = {};
     for (const p of personeller) {
         m[p.isim] = Math.max(1, tarihler.filter(t =>
-            !izinKontrol(p.isim, t) && ['gece', 'sabah', 'aksam'].some(v => yetkinlikKontrol(p.isim, v) && kuralKontrol(p.isim, v, t))
+            !izinKontrol(p.isim, t) && !marketCalismaHaritasi(t)[p.isim]
+            && vardiyaTipleri.some(v => yetkinlikKontrol(p.isim, v) && kuralKontrol(p.isim, v, t))
         ).length);
     }
     return m;
@@ -283,48 +294,126 @@ function rastgeleUretec(tohum) {
     };
 }
 
-// Adalet özeti: izin günleri hesaba katılarak normalize edilmiş fark değerleri ve 0-100 skor
-function adaletOzeti(vardiyalar) {
-    const tarihler = vardiyalar.map(v => new Date(v.tarih));
-    const musait = musaitGunSayilari(tarihler);
-    const d = {};
-    personeller.forEach(p => d[p.isim] = { toplam: 0, gece: 0, hs: 0 });
-    for (const v of vardiyalar) {
-        for (const tip of ['gece', 'sabah', 'aksam']) {
-            for (const n of (v[tip] || [])) {
-                if (!d[n]) continue;
-                const yuk = vardiyaSuresi(tip) / REFERANS_SAAT;
-                d[n].toplam += yuk;
-                if (tip === 'gece') d[n].gece += yuk;
-                if (v.haftasonu) d[n].hs += yuk;
-            }
+function marketSaatleriniHesapla(personelIsimleri, tarihler) {
+    const yuk = marketYukunuHesapla(personelIsimleri, tarihler);
+    return Object.fromEntries(personelIsimleri.map(isim => [isim, yuk[isim].toplamSaat]));
+}
+
+function marketYukunuHesapla(personelIsimleri, tarihler) {
+    const dahil = new Set(tarihler.map(tarihAnahtar));
+    const yuk = Object.fromEntries(personelIsimleri.map(isim =>
+        [isim, { toplamSaat: 0, geceSaat: 0, haftaSonuSaat: 0 }]
+    ));
+    for (const v of marketVardiyalarGuncel) {
+        if (!dahil.has(tarihAnahtar(v.tarih))) continue;
+        const haftaSonu = [0, 6].includes(new Date(v.tarih).getDay());
+        for (const [isim, vardiya] of Object.entries(marketOncekiVardiyalar(v))) {
+            if (!yuk[isim]) continue;
+            const saat = vardiyaSuresi(vardiya);
+            yuk[isim].toplamSaat += saat;
+            if (vardiya.startsWith('gece')) yuk[isim].geceSaat += saat;
+            if (haftaSonu) yuk[isim].haftaSonuSaat += saat;
         }
     }
+    return yuk;
+}
+
+function marketCalismaHaritasi(tarih) {
+    const anahtar = tarihAnahtar(tarih);
+    const v = marketVardiyalarGuncel.find(x => tarihAnahtar(x.tarih) === anahtar);
+    return v ? marketOncekiVardiyalar(v) : {};
+}
+
+function gunlukBenzinCalisanlari(v) {
+    return vardiyaTipleri.flatMap(t => v[t] || []);
+}
+
+function haftalikIzinGuncelle(v, tercih) {
+    const tarih = new Date(v.tarih);
+    const calisan = new Set(gunlukBenzinCalisanlari(v));
+    const uygunlar = personeller.filter(p => !calisan.has(p.isim) && !izinKontrol(p.isim, tarih)
+        && !marketCalismaHaritasi(tarih)[p.isim]);
+    if (!uygunlar.length) return false;
+    let haftalikIzinli = uygunlar.find(p => p.isim === tercih)
+        || uygunlar.find(p => p.isim === v.haftalikIzinli)
+        || uygunlar.find(p => p.isim === (v.izinli || [])[0]);
+    if (!haftalikIzinli) {
+        const izinSayisi = Object.fromEntries(personeller.map(p => [p.isim, 0]));
+        for (const gun of vardiyalarGuncel) {
+            const isim = gun.haftalikIzinli || (gun.izinli || [])[0];
+            if (isim in izinSayisi) izinSayisi[isim]++;
+        }
+        uygunlar.sort((a, b) => izinSayisi[a.isim] - izinSayisi[b.isim] || a.isim.localeCompare(b.isim, 'tr'));
+        haftalikIzinli = uygunlar[0];
+    }
+    v.haftalikIzinli = haftalikIzinli.isim;
+    v.izinli = [haftalikIzinli.isim];
+    v.yedek = uygunlar.filter(p => p.isim !== haftalikIzinli.isim).map(p => p.isim);
+    return true;
+}
+
+// Adalet özeti gerçek saatleri (benzinlik + market), gece/hafta sonu yükünü ve haftalık izin sayısını karşılaştırır.
+function adaletOzeti(vardiyalar) {
+    const tarihler = vardiyalar.map(v => new Date(v.tarih));
+    const marketYuk = marketYukunuHesapla(personeller.map(p => p.isim), tarihler);
+    const d = {};
+    personeller.forEach(p => d[p.isim] = {
+        toplamSaat: marketYuk[p.isim].toplamSaat,
+        geceSaat: marketYuk[p.isim].geceSaat,
+        haftaSonuSaat: marketYuk[p.isim].haftaSonuSaat,
+        haftalikIzin: 0
+    });
+    for (const v of vardiyalar) {
+        for (const tip of vardiyaTipleri) {
+            for (const n of (v[tip] || [])) {
+                if (!d[n]) continue;
+                const saat = vardiyaSuresi(tip);
+                d[n].toplamSaat += saat;
+                if (tip === 'gece') d[n].geceSaat += saat;
+                if (v.haftasonu) d[n].haftaSonuSaat += saat;
+            }
+        }
+        const haftalikIzinli = v.haftalikIzinli || (v.izinli || [])[0];
+        if (d[haftalikIzinli]) d[haftalikIzinli].haftalikIzin++;
+    }
     const fark = (liste) => liste.length ? Math.max(...liste) - Math.min(...liste) : 0;
-    const gunAdet = vardiyalar.length;
-    const toplamFark = fark(personeller.map(p => d[p.isim].toplam * gunAdet / musait[p.isim]));
-    const hsFark = fark(personeller.map(p => d[p.isim].hs * gunAdet / musait[p.isim]));
-    const geceFark = fark(personeller.filter(p => yetkinlikKontrol(p.isim, 'gece')).map(p => d[p.isim].gece * gunAdet / musait[p.isim]));
-    const skor = Math.max(0, Math.round(100 - 6 * toplamFark - 6 * hsFark - 4 * geceFark));
-    return { toplamFark: +toplamFark.toFixed(1), hsFark: +hsFark.toFixed(1), geceFark: +geceFark.toFixed(1), skor, ceza: toplamFark * 3 + hsFark * 3 + geceFark * 2 };
+    const toplamFark = fark(personeller.map(p => d[p.isim].toplamSaat));
+    const hsFark = fark(personeller.map(p => d[p.isim].haftaSonuSaat));
+    const geceFark = fark(personeller.filter(p => yetkinlikKontrol(p.isim, 'gece')).map(p => d[p.isim].geceSaat));
+    const izinFark = fark(personeller.map(p => d[p.isim].haftalikIzin));
+    const donemKatsayisi = 1 / Math.max(1, vardiyalar.length);
+    const ceza = (toplamFark + hsFark * 1.5 + geceFark * 1.5 + izinFark * 8) * donemKatsayisi;
+    const skor = Math.max(0, Math.round(100 - ceza));
+    return {
+        toplamFark: +toplamFark.toFixed(1),
+        hsFark: +hsFark.toFixed(1),
+        geceFark: +geceFark.toFixed(1),
+        izinFark,
+        skor,
+        ceza
+    };
 }
 
 function vardiyaUret(gunAdet, baslangic, hafizaKullan, deneme) {
     const rng = rastgeleUretec(deneme * 7919 + 13);
     const sayac = {};
-    personeller.forEach(p => sayac[p.isim] = { gece: 0, sabah: 0, aksam: 0, toplam: 0, hs: 0, gunluk: [] });
+    const tarihler = Array.from({ length: gunAdet }, (_, i) => gunEkle(baslangic, i));
+    const marketSaat = marketSaatleriniHesapla(personeller.map(p => p.isim), tarihler);
+    personeller.forEach(p => sayac[p.isim] = {
+        toplamSaat: marketSaat[p.isim] || 0, geceSaat: 0, haftaSonuSaat: 0, haftalikIzin: 0, gunluk: []
+    });
     const gecmis = hafizaKullan ? gecmisSayaclari(baslangic) : null;
     const gecmisDeger = (isim, alan) => gecmis ? gecmis[isim][alan] * 0.5 : 0;
-    const musait = musaitGunSayilari(Array.from({ length: gunAdet }, (_, i) => gunEkle(baslangic, i)));
+    const musait = musaitGunSayilari(tarihler);
     const n = personeller.length;
     let onceki = hafizaKullan ? oncekiGunVardiyalari(baslangic) : {};
-    // Personel yetmezse sırayla akşam ve sabah kadrosu azaltılır (gece her zaman 2 kişi olmalı)
-    const slotSecenekleri = [
+    const anaSlotSecenekleri = [
         ['gece', 'gece', 'sabah', 'sabah', 'sabah', 'aksam', 'aksam', 'aksam'],
         ['gece', 'gece', 'sabah', 'sabah', 'sabah', 'aksam', 'aksam'],
         ['gece', 'gece', 'sabah', 'sabah', 'aksam', 'aksam'],
         ['gece', 'gece', 'sabah', 'sabah', 'aksam']
     ];
+    const araSlotSecenekleri = [['araSabah', 'araAksam'], ['araSabah'], ['araAksam'], []];
     const vardiyalar = [];
     const uyarilar = [];
 
@@ -332,19 +421,27 @@ function vardiyaUret(gunAdet, baslangic, hafizaKullan, deneme) {
         const tarih = gunEkle(baslangic, gun);
         const haftasonu = tarih.getDay() === 0 || tarih.getDay() === 6;
         let atama, kullanilan, dugum, slotlar;
-        const odunc = { bugun: marketOduncHaritasi(tarih), yarin: marketOduncHaritasi(gunEkle(tarih, 1)) };
-        const etkinOnceki = { ...onceki, ...marketOduncHaritasi(gunEkle(tarih, -1)) };
-
+        const marketBugun = marketCalismaHaritasi(tarih);
+        const marketYarin = marketCalismaHaritasi(gunEkle(tarih, 1));
+        const marketDun = marketCalismaHaritasi(gunEkle(tarih, -1));
+        const odunc = { bugun: marketBugun, yarin: marketYarin };
+        const etkinOnceki = { ...onceki, ...marketDun };
+        const uygunPersoneller = personeller.filter(p => !izinKontrol(p.isim, tarih) && !marketBugun[p.isim]);
+        const enFazlaVardiya = uygunPersoneller.length - 1;
+        const slotSecenekleri = anaSlotSecenekleri.flatMap(ana => araSlotSecenekleri
+            .filter(ara => ana.length + ara.length <= enFazlaVardiya)
+            .map(ara => ({ anaSayisi: ana.length, araSayisi: ara.length, slotlar: [...ana, ...ara] })))
+            .sort((a, b) => b.anaSayisi - a.anaSayisi || b.araSayisi - a.araSayisi)
+            .map(x => x.slotlar);
         // Düşük puan = öncelikli. İzin nedeniyle az müsait olanın yükü gün sayısına oranlanır.
         const puanla = (p, idx, v) => {
             const s = sayac[p.isim];
-            const oran = (s.toplam + gecmisDeger(p.isim, 'toplam')) / musait[p.isim];
-            const gecePuan = v === 'gece' ? (s.gece + Math.min(gecmisDeger(p.isim, 'gece'), 3)) / musait[p.isim] * 1500 : s[v] * 10;
-            const hsPuan = haftasonu ? (s.hs + gecmisDeger(p.isim, 'hs')) * 60 : 0;
+            const oran = (s.toplamSaat + gecmisDeger(p.isim, 'toplam') * REFERANS_SAAT) / musait[p.isim];
+            const gecePuan = v === 'gece' ? s.geceSaat + Math.min(gecmisDeger(p.isim, 'gece') * REFERANS_SAAT, 24) : 0;
+            const hsPuan = haftasonu ? s.haftaSonuSaat + gecmisDeger(p.isim, 'hs') * REFERANS_SAAT : 0;
             const sira = deneme === 0 ? ((idx - gun) % n + n) % n : rng() * n;
-            // Son 7 günde (168 saat) çalışılan saat: art arda yoğun çalışmayı cezalandırır
-            const son7 = s.gunluk.slice(-6).reduce((t, x) => t + x, 0) / REFERANS_SAAT;
-            return oran * 1000 + gecePuan + hsPuan + son7 * 25 + sira;
+            const son7 = s.gunluk.slice(-6).reduce((t, x) => t + x, 0);
+            return oran * 1000 + gecePuan * 20 + hsPuan * 10 + son7 * 3 + sira;
         };
 
         const coz = (i) => {
@@ -352,7 +449,7 @@ function vardiyaUret(gunAdet, baslangic, hafizaKullan, deneme) {
             if (++dugum > 50000) return false;
             const v = slotlar[i];
             const kadinSayisi = atama[v].filter(x => personelBul(x).cinsiyet === "K").length;
-            const adaylar = personeller
+            const adaylar = uygunPersoneller
                 .map((p, idx) => ({ p, idx }))
                 .filter(({ p }) => !kullanilan.has(p.isim) && calisabilir(p.isim, v, tarih, etkinOnceki, odunc)
                     && !(p.cinsiyet === "K" && kadinSayisi >= MAX_KADIN))
@@ -371,49 +468,74 @@ function vardiyaUret(gunAdet, baslangic, hafizaKullan, deneme) {
         let cozuldu = false;
         for (let s = 0; s < slotSecenekleri.length && !cozuldu; s++) {
             slotlar = slotSecenekleri[s];
-            atama = { gece: [], sabah: [], aksam: [] };
+            atama = Object.fromEntries(vardiyaTipleri.map(t => [t, []]));
             kullanilan = new Set();
             dugum = 0;
             cozuldu = coz(0);
-            if (cozuldu && s > 0) uyarilar.push(`${tarih.toLocaleDateString('tr-TR')}: personel yetersiz, kadro eksik (${atama.gece.length}/${atama.sabah.length}/${atama.aksam.length})`);
+            if (cozuldu) {
+                if (slotlar.filter(t => !t.startsWith('ara')).length < 8) {
+                    uyarilar.push(`${tarih.toLocaleDateString('tr-TR')}: ana vardiya kadrosu eksik (${atama.gece.length}/${atama.sabah.length}/${atama.aksam.length})`);
+                }
+            }
         }
         if (!cozuldu) {
-            return { hata: `${tarih.toLocaleDateString('tr-TR')} için kurallara uygun vardiya dağılımı bulunamadı (yeterli personel/yetkinlik yok).` };
+            return { hata: `${tarih.toLocaleDateString('tr-TR')} için bir haftalık izin ve en az 2 gece vardiyasıyla kurallara uygun dağılım bulunamadı.` };
         }
 
         const yeniOnceki = {};
-        for (const v of ['gece', 'sabah', 'aksam']) {
+        const atananlar = new Set();
+        for (const v of vardiyaTipleri) {
             for (const x of atama[v]) {
-                const yuk = vardiyaSuresi(v) / REFERANS_SAAT;
-                sayac[x][v] += yuk; sayac[x].toplam += yuk; yeniOnceki[x] = v;
-                if (haftasonu) sayac[x].hs += yuk;
+                const sure = vardiyaSuresi(v);
+                sayac[x].toplamSaat += sure;
+                if (v === 'gece') sayac[x].geceSaat += sure;
+                if (haftasonu) sayac[x].haftaSonuSaat += sure;
+                yeniOnceki[x] = v;
+                atananlar.add(x);
             }
         }
+        const calisabilirler = uygunPersoneller.filter(p => !atananlar.has(p.isim));
+        calisabilirler.sort((a, b) => sayac[a.isim].haftalikIzin - sayac[b.isim].haftalikIzin
+            || sayac[b.isim].toplamSaat - sayac[a.isim].toplamSaat
+            || a.isim.localeCompare(b.isim, 'tr'));
+        const haftalikIzinli = calisabilirler.shift();
+        if (!haftalikIzinli) {
+            return { hata: `${tarih.toLocaleDateString('tr-TR')} için haftalık izin verecek uygun personel kalmadı.` };
+        }
+        sayac[haftalikIzinli.isim].haftalikIzin++;
+        const yedek = calisabilirler.map(p => p.isim);
         onceki = yeniOnceki;
 
         vardiyalar.push({
             tarih,
-            gece: atama.gece,
-            sabah: atama.sabah,
-            aksam: atama.aksam,
-            izinli: personeller.map(p => p.isim).filter(x => !yeniOnceki[x] && !izinKontrol(x, tarih)),
+            ...atama,
+            haftalikIzinli: haftalikIzinli.isim,
+            yedek,
+            izinli: [haftalikIzinli.isim],
             haftasonu
         });
         personeller.forEach(p => sayac[p.isim].gunluk.push(yeniOnceki[p.isim] ? vardiyaSuresi(yeniOnceki[p.isim]) : 0));
+        if (slotlar.length < 8 || slotlar.filter(t => t.startsWith('ara')).length < 2) {
+            const doldurulmayan = vardiyaTipleri.filter(t => KAPASITE[t] === 1 && !atama[t].length);
+            if (doldurulmayan.length && uygunPersoneller.some(p => p.cinsiyet === 'K' && yetkinlikKontrol(p.isim, doldurulmayan[0]) && !atananlar.has(p.isim))) {
+                uyarilar.push(`${tarih.toLocaleDateString('tr-TR')}: ara vardiya personel/izin kapasitesi nedeniyle boş bırakıldı.`);
+            }
+        }
     }
-    return { vardiyalar, uyarilar };
+    return { vardiyalar, uyarilar, anaKadroEksigi: vardiyalar.reduce((sum, v) => sum + Math.max(0, 8 - v.gece.length - v.sabah.length - v.aksam.length), 0) };
 }
 
 // Birden fazla deneme üretir; eksik kadro az ve adalet cezası düşük olanı seçer.
 function vardiyaOlusturYeni(gunAdet, baslangic, hafizaKullan, denemeSayisi = Math.max(6, Math.round(600 / gunAdet))) {
-    let en = null, enPuan = Infinity;
+    let en = null, enPuan = Infinity, hata = null;
     for (let d = 0; d < denemeSayisi; d++) {
         const r = vardiyaUret(gunAdet, baslangic, hafizaKullan, d);
-        if (r.hata) return r;
-        const puan = r.uyarilar.length * 1000 + adaletOzeti(r.vardiyalar).ceza;
+        if (r.hata) { hata = r.hata; continue; }
+        const araVardiyaSayisi = r.vardiyalar.reduce((sum, v) => sum + v.araSabah.length + v.araAksam.length, 0);
+        const puan = r.anaKadroEksigi * 10000 - araVardiyaSayisi * 100 + adaletOzeti(r.vardiyalar).ceza;
         if (puan < enPuan) { enPuan = puan; en = r; }
     }
-    return en;
+    return en || { hata: hata || 'Kurallara uygun vardiya dağılımı bulunamadı.' };
 }
 
 function benzinlikParametreleri() {
@@ -437,8 +559,8 @@ function hafizayiGuncelle(vardiyalar) {
     vardiyaHafizasi = [];
     for (const v of vardiyalar) {
         const t = tarihAnahtar(v.tarih);
-        for (const tip of ['gece', 'sabah', 'aksam']) {
-            for (const p of v[tip]) vardiyaHafizasi.push({ tarih: t, personel: p, vardiya: tip, haftasonu: v.haftasonu });
+        for (const tip of vardiyaTipleri) {
+            for (const p of (v[tip] || [])) vardiyaHafizasi.push({ tarih: t, personel: p, vardiya: tip, haftasonu: v.haftasonu });
         }
     }
 }
@@ -455,7 +577,10 @@ async function takvimOlustur(zorla = false) {
         if (gecerli) {
             const v = kayitli.map(x => ({ ...x, tarih: new Date(x.tarih), izinli: x.izinli || [] }));
             sonBaslangic = baslangic; sonGunSayisi = gunSayisi;
-            takvimiGoster(v, '✅ Kayıtlı takvim yüklendi.');
+            const yeniFormat = v.every(x => Array.isArray(x.araSabah) && Array.isArray(x.araAksam) && x.haftalikIzinli);
+            takvimiGoster(v, yeniFormat
+                ? '✅ Kayıtlı takvim yüklendi.'
+                : '⚠️ Bu kayıt ara vardiya öncesi oluşturulmuş. Yeni ara vardiyaları ve günlük haftalık izni eklemek için "VARDİYASINI YENİDEN OLUŞTUR" düğmesine basın.');
             return;
         }
     }
@@ -483,6 +608,17 @@ function gorunenIzinliler(v) {
     return (v.izinli || []).filter(n => !izinKontrol(n, t));
 }
 
+function gunlukDinlenmeDurumu(v) {
+    const t = new Date(v.tarih);
+    const haftalik = v.haftalikIzinli || (v.izinli || []).find(n => !izinKontrol(n, t));
+    const yillik = personeller.filter(p => izinKontrol(p.isim, t)).map(p => p.isim);
+    const calisan = new Set(gunlukBenzinCalisanlari(v));
+    const yedek = v.yedek || personeller.map(p => p.isim).filter(n =>
+        !calisan.has(n) && n !== haftalik && !yillik.includes(n) && !marketCalismaHaritasi(t)[n]
+    );
+    return { haftalik, yillik, yedek };
+}
+
 function etiket(p) {
     const kadin = getKadinlar().includes(p);
     return `<span class="personel-etiket ${kadin ? 'kadin' : 'erkek'}" data-p="${esc(p)}">${esc(p)}</span>`;
@@ -493,37 +629,46 @@ function tabloyuGoster(vardiyalar) {
         $('tabloAlan').innerHTML = '<div class="uyari">Henüz vardiya oluşturulmamış.</div>';
         return;
     }
-    let html = `<table class="vardiya-tablosu"><thead><tr><th>TARİH / GÜN</th><th>🌙 GECE<br><span style="font-size:10px;">${saatler.gece}</span></th>
-            <th>☀️ SABAH<br><span style="font-size:10px;">${saatler.sabah}</span></th>
-            <th>🌆 AKŞAM<br><span style="font-size:10px;">${saatler.aksam}</span></th>
-            <th>📌 İZİNLİLER</th></tr></thead><tbody>`;
+    let html = `<table class="vardiya-tablosu"><thead><tr><th>TARİH / GÜN</th>${vardiyaTipleri.map(t =>
+        `<th>${t === 'gece' ? '🌙 GECE' : t === 'sabah' ? '☀️ SABAH' : t === 'aksam' ? '🌆 AKŞAM' : t === 'araSabah' ? '👩 ARA SABAH' : '👩 ARA AKŞAM'}<br><span style="font-size:10px;">${saatler[t]}</span></th>`
+    ).join('')}<th>📌 HAFTALIK İZİN / YEDEK</th><th>🏖️ YILLIK İZİN</th></tr></thead><tbody>`;
     vardiyalar.forEach((v, i) => {
         const t = new Date(v.tarih);
         const hsNot = (t.getDay() === 0 || t.getDay() === 6) ? ' 🟡' : '';
-        const izinli = gorunenIzinliler(v);
+        const dinlenme = gunlukDinlenmeDurumu(v);
         html += `<tr data-gun="${i}">
             <td class="tarih-hucre"><strong>${tarihEtiketi(t)}${hsNot}</strong></td>
-            <td class="gece-hucre" data-vardiya="gece">${(v.gece || []).map(etiket).join('')}</td>
-            <td class="sabah-hucre" data-vardiya="sabah">${(v.sabah || []).map(etiket).join('')}</td>
-            <td class="aksam-hucre" data-vardiya="aksam">${(v.aksam || []).map(etiket).join('')}</td>
-            <td style="background:#fff1cf;" class="benz-izinli-td" data-gun="${i}">
-                <div class="izinli-listesi">
-                    ${izinli.length ? izinli.map(p => `<span class="personel-etiket izin benz-izinli-item" data-gun="${i}" data-izinli="${esc(p)}">📌 ${esc(p)}${duzenlemeModu ? ` <span style="font-size:10px; cursor:pointer;" class="izinli-cikar" data-p="${esc(p)}">✖</span>` : ''}</span>`).join('') : '<span class="izinli-ekle-placeholder">(izinli yok)</span>'}
-                </div>
-                ${duzenlemeModu ? `<button class="izinli-ekle-btn" data-gun="${i}" style="margin-top:5px; padding:2px 8px; font-size:10px;">➕ İzinli Ekle</button>` : ''}
+            ${vardiyaTipleri.map(tip => {
+                const personel = (v[tip] || []).map(etiket).join('');
+                const bosAra = duzenlemeModu && tip.startsWith('ara') && !personel
+                    ? `<button class="ara-ekle-btn" data-gun="${i}" data-vardiya="${tip}" type="button">➕ Kadın personel ekle</button>`
+                    : '<span class="vardiya-bos">—</span>';
+                return `<td class="${tip}-hucre vardiya-hucre" data-vardiya="${tip}">${personel || bosAra}</td>`;
+            }).join('')}
+            <td class="benz-izinli-td" data-gun="${i}">
+                ${dinlenme.haftalik ? `<span class="personel-etiket izin">${esc(dinlenme.haftalik)}</span>` : '<span class="vardiya-bos">Haftalık izin atanmamış</span>'}
+                ${dinlenme.yedek.length ? `<br><small>Yedek: ${dinlenme.yedek.map(esc).join(', ')}</small>` : ''}
+                ${duzenlemeModu ? `<br><button class="izinli-ekle-btn" data-gun="${i}" style="margin-top:5px; padding:2px 8px; font-size:10px;">🔄 Haftalık izinliyi seç</button>` : ''}
             </td>
+            <td class="yillik-izin-td">${dinlenme.yillik.length ? dinlenme.yillik.map(n => `<span class="personel-etiket izin">${esc(n)}</span>`).join('') : '<span class="vardiya-bos">—</span>'}</td>
         </tr>`;
     });
     html += `</tbody></table>`;
     $('tabloAlan').innerHTML = html;
 
     if (!duzenlemeModu) return;
-    document.querySelectorAll('.gece-hucre span, .sabah-hucre span, .aksam-hucre span').forEach(span => {
+    document.querySelectorAll('.vardiya-hucre .personel-etiket').forEach(span => {
         span.style.cursor = 'pointer';
         span.addEventListener('click', (e) => { e.stopPropagation(); acDropdown(span); });
     });
     document.querySelectorAll('.izinli-ekle-btn').forEach(btn => {
         btn.addEventListener('click', (e) => { e.stopPropagation(); benzIzinliEkle(parseInt(btn.dataset.gun), btn); });
+    });
+    document.querySelectorAll('.ara-ekle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            bosAraVardiyayaEkle(parseInt(btn.dataset.gun), btn.dataset.vardiya, btn);
+        });
     });
     document.querySelectorAll('.izinli-cikar').forEach(span => {
         span.addEventListener('click', (e) => {
@@ -584,31 +729,30 @@ function degisiklikIsaretle() {
 
 // ============ BENZİNLİK DÜZENLEME ============
 function benzIzinliEkle(gun, anchor) {
-    const mevcut = vardiyalarGuncel[gun].izinli;
-    const tarih = new Date(vardiyalarGuncel[gun].tarih);
-    const adaylar = personeller.map(p => p.isim).filter(n => !mevcut.includes(n) && !izinKontrol(n, tarih));
-    if (!adaylar.length) { alert("Eklenebilecek personel kalmadı."); return; }
+    const v = vardiyalarGuncel[gun];
+    const mevcut = v.haftalikIzinli || (v.izinli || []).find(n => !izinKontrol(n, v.tarih));
+    const calisan = new Set(gunlukBenzinCalisanlari(v));
+    const adaylar = personeller.map(p => p.isim).filter(n => n !== mevcut && !calisan.has(n)
+        && !izinKontrol(n, v.tarih) && !marketCalismaHaritasi(v.tarih)[n]);
+    if (!adaylar.length) { alert("Haftalık izin için uygun personel bulunamadı."); return; }
     menuAc(anchor, adaylar.map(a => ({
-        metin: `➕ ${a}`,
-        islem: () => { vardiyalarGuncel[gun].izinli.push(a); degisiklikIsaretle(); }
+        metin: `🔄 ${a} haftalık izinli olsun`,
+        islem: () => {
+            haftalikIzinGuncelle(v, a);
+            degisiklikIsaretle();
+        }
     })));
 }
 
 function benzIzinliCikar(gun, personel) {
-    const liste = vardiyalarGuncel[gun].izinli;
-    const idx = liste.indexOf(personel);
-    if (idx !== -1) liste.splice(idx, 1);
-    degisiklikIsaretle();
+    const v = vardiyalarGuncel[gun];
+    if ((v.haftalikIzinli || (v.izinli || [])[0]) === personel) {
+        alert("Her gün bir haftalık izin korunmalıdır. Başka personeli haftalık izinli seçin.");
+    }
 }
 
 function benzIzinliDegistir(gun, eski, anchor) {
-    const liste = vardiyalarGuncel[gun].izinli;
-    const adaylar = personeller.map(p => p.isim).filter(n => n !== eski && !liste.includes(n));
-    if (!adaylar.length) { alert("Değiştirilebilecek personel yok."); return; }
-    menuAc(anchor, adaylar.map(a => ({
-        metin: `🔄 ${a}`,
-        islem: () => { liste[liste.indexOf(eski)] = a; degisiklikIsaretle(); }
-    })));
+    benzIzinliEkle(gun, anchor);
 }
 
 // Bir vardiyanın yeni listesini kurallara göre doğrular; hata metni ya da null döner.
@@ -617,7 +761,8 @@ function vardiyaListesiDogrula(gun, vardiya, yeniListe) {
     const tarih = new Date(v.tarih);
     const dun = gun > 0 ? vardiyalarGuncel[gun - 1] : null;
     const yarin = vardiyalarGuncel[gun + 1] || null;
-    const diger = ['gece', 'sabah', 'aksam'].filter(t => t !== vardiya).flatMap(t => v[t]);
+    const diger = vardiyaTipleri.filter(t => t !== vardiya).flatMap(t => v[t] || []);
+    if (yeniListe.length > KAPASITE[vardiya]) return `${saatler[vardiya]} vardiyasında en fazla ${KAPASITE[vardiya]} personel olabilir.`;
     if (new Set(yeniListe).size !== yeniListe.length) return "Aynı kişi birden fazla yazılmış.";
     let kadin = 0;
     for (const n of yeniListe) {
@@ -626,15 +771,23 @@ function vardiyaListesiDogrula(gun, vardiya, yeniListe) {
         if (diger.includes(n)) return `${n} aynı gün başka vardiyada çalışıyor.`;
         if (izinKontrol(n, tarih)) return `${n} bu tarihte yıllık izinli.`;
         if (!yetkinlikKontrol(n, vardiya) || !kuralKontrol(n, vardiya, tarih)) return `${n} bu vardiyada çalışamaz!`;
-        const oduncB = marketOduncHaritasi(tarih);
-        if (oduncB[n]) return `${n} bu gün markete ödünç verilmiş.`;
-        const dunV = gundekiVardiya(dun, n) || marketOduncHaritasi(gunEkle(tarih, -1))[n] || null;
-        const yarinV = gundekiVardiya(yarin, n) || marketOduncHaritasi(gunEkle(tarih, 1))[n] || null;
+        const marketBugun = marketCalismaHaritasi(tarih);
+        if (marketBugun[n]) return `${n} bu gün markette çalışıyor.`;
+        const dunV = gundekiVardiya(dun, n) || marketCalismaHaritasi(gunEkle(tarih, -1))[n] || null;
+        const yarinV = gundekiVardiya(yarin, n) || marketCalismaHaritasi(gunEkle(tarih, 1))[n] || null;
         if (!dinlenmeYeterli(dunV, vardiya)) return `${n} dünkü ${dunV} vardiyasından sonra yeterince dinlenemez (en az ${MIN_DINLENME_SAATI} saat).`;
         if (!dinlenmeYeterli(vardiya, yarinV)) return `${n} yarınki ${yarinV} vardiyasından önce yeterince dinlenemez (en az ${MIN_DINLENME_SAATI} saat).`;
         if (p.cinsiyet === 'K') kadin++;
     }
     if (kadin > MAX_KADIN) return `Bir vardiyada en fazla ${MAX_KADIN} kadın çalışabilir.`;
+    const bugunCalisan = new Set([
+        ...diger,
+        ...yeniListe,
+        ...vardiyaTipleri.flatMap(t => t === vardiya ? [] : v[t] || [])
+    ]);
+    const haftalikIzinAdayi = personeller.some(p => !bugunCalisan.has(p.isim)
+        && !izinKontrol(p.isim, tarih) && !marketCalismaHaritasi(tarih)[p.isim]);
+    if (!haftalikIzinAdayi) return 'Her gün bir haftalık izin için en az bir uygun personel boş kalmalıdır.';
     return null;
 }
 
@@ -642,10 +795,36 @@ function vardiyaListesiUygula(gun, vardiya, yeniListe) {
     const hata = vardiyaListesiDogrula(gun, vardiya, yeniListe);
     if (hata) { alert(hata); return; }
     const v = vardiyalarGuncel[gun];
+    const eskiListe = v[vardiya];
+    const eskiDurum = { haftalikIzinli: v.haftalikIzinli, yedek: v.yedek, izinli: v.izinli };
     v[vardiya] = yeniListe;
-    const calisan = new Set([...v.gece, ...v.sabah, ...v.aksam]);
-    v.izinli = personeller.map(p => p.isim).filter(n => !calisan.has(n) && !izinKontrol(n, new Date(v.tarih)));
+    if (!haftalikIzinGuncelle(v)) {
+        v[vardiya] = eskiListe;
+        Object.assign(v, eskiDurum);
+        alert('Bu düzenleme günlük haftalık izin bırakmadığı için uygulanamadı.');
+        return;
+    }
     degisiklikIsaretle();
+}
+
+function bosAraVardiyayaEkle(gun, vardiya, anchor) {
+    const mevcut = vardiyalarGuncel[gun][vardiya] || [];
+    const tarih = new Date(vardiyalarGuncel[gun].tarih);
+    const digerCalisan = vardiyaTipleri.filter(t => t !== vardiya)
+        .flatMap(t => vardiyalarGuncel[gun][t] || []);
+    const adaylar = personeller.map(p => p.isim).filter(n =>
+        !digerCalisan.includes(n) && !izinKontrol(n, tarih)
+        && !marketCalismaHaritasi(tarih)[n]
+        && yetkinlikKontrol(n, vardiya) && kuralKontrol(n, vardiya, tarih)
+    );
+    if (!adaylar.length) {
+        alert('Bu ara vardiyaya uygun ve müsait kadın personel bulunamadı.');
+        return;
+    }
+    menuAc(anchor, adaylar.map(isim => ({
+        metin: `➕ ${isim} ekle`,
+        islem: () => vardiyaListesiUygula(gun, vardiya, [...mevcut, isim])
+    })));
 }
 
 function acDropdown(span) {
@@ -656,9 +835,10 @@ function acDropdown(span) {
     const vardiya = td.dataset.vardiya;
     const mevcut = vardiyalarGuncel[gun][vardiya];
     const tarih = new Date(vardiyalarGuncel[gun].tarih);
-    const digerCalisan = ['gece', 'sabah', 'aksam'].filter(t => t !== vardiya).flatMap(t => vardiyalarGuncel[gun][t]);
+    const digerCalisan = vardiyaTipleri.filter(t => t !== vardiya).flatMap(t => vardiyalarGuncel[gun][t] || []);
     const adaylar = personeller.map(p => p.isim)
         .filter(n => !mevcut.includes(n) && !digerCalisan.includes(n) && !izinKontrol(n, tarih)
+            && !marketCalismaHaritasi(tarih)[n]
             && yetkinlikKontrol(n, vardiya) && kuralKontrol(n, vardiya, tarih));
 
     const secenekler = [{ baslik: true, metin: `📋 Mevcut (${mevcut.length} kişi): ${mevcut.join(', ')}` }];
@@ -692,8 +872,11 @@ async function degisiklikleriOnayla() {
     originalVardiyalar = kopya(vardiyalarGuncel);
     const saklanacak = vardiyalarGuncel.map(v => ({
         tarih: new Date(v.tarih).toISOString(),
-        gece: [...v.gece], sabah: [...v.sabah], aksam: [...v.aksam],
-        izinli: [...(v.izinli || [])], haftasonu: v.haftasonu
+        ...Object.fromEntries(vardiyaTipleri.map(t => [t, [...(v[t] || [])]])),
+        haftalikIzinli: v.haftalikIzinli || null,
+        yedek: [...(v.yedek || [])],
+        izinli: [...(v.izinli || [])],
+        haftasonu: v.haftasonu
     }));
     await takvimKaydet("guzelel_takvim", "takvimler", sonBaslangic, sonGunSayisi, saklanacak);
     await veriKaydet();
@@ -743,29 +926,40 @@ async function sifirlaTumDegisiklikler() {
 function istatistikGoster(vardiyalar) {
     const alan = $('istatistikAlan');
     if (!Array.isArray(vardiyalar) || !vardiyalar.length) { alan.style.display = 'none'; return; }
+    const tarihler = vardiyalar.map(v => new Date(v.tarih));
+    const marketYuk = marketYukunuHesapla(personeller.map(p => p.isim), tarihler);
     const calisma = {};
-    personeller.forEach(p => calisma[p.isim] = { gece: 0, sabah: 0, aksam: 0, toplam: 0, hs: 0, saat: 0 });
+    personeller.forEach(p => calisma[p.isim] = {
+        gece: 0, araSabah: 0, sabah: 0, araAksam: 0, aksam: 0,
+        benzinlikSaat: 0, marketSaat: marketYuk[p.isim].toplamSaat,
+        geceSaat: marketYuk[p.isim].geceSaat, haftaSonuSaat: marketYuk[p.isim].haftaSonuSaat,
+        haftalikIzin: 0
+    });
     for (const v of vardiyalar) {
-        for (const tip of ['gece', 'sabah', 'aksam']) {
+        for (const tip of vardiyaTipleri) {
             for (const p of (v[tip] || [])) {
                 if (!calisma[p]) continue;
-                calisma[p][tip]++; calisma[p].toplam++; calisma[p].saat += vardiyaSuresi(tip);
-                if (v.haftasonu) calisma[p].hs++;
+                calisma[p][tip]++;
+                calisma[p].benzinlikSaat += vardiyaSuresi(tip);
+                if (v.haftasonu) calisma[p].haftaSonuSaat += vardiyaSuresi(tip);
+                if (tip === 'gece') calisma[p].geceSaat += vardiyaSuresi(tip);
             }
         }
+        const haftalikIzinli = v.haftalikIzinli || (v.izinli || [])[0];
+        if (calisma[haftalikIzinli]) calisma[haftalikIzinli].haftalikIzin++;
     }
     const adalet = adaletOzeti(vardiyalar);
     let html = `<h3>📊 PERSONEL ÇALIŞMA İSTATİSTİKLERİ (${vardiyalar.length} Gün)</h3>
-        <div class="basarili" style="margin-bottom:12px">⚖️ Adalet skoru: <strong>${adalet.skor}/100</strong> — Toplam vardiya farkı: ${adalet.toplamFark} | Hafta sonu farkı: ${adalet.hsFark} | Gece farkı: ${adalet.geceFark} <span style="font-size:11px">(izin günlerine göre normalize)</span></div>
+        <div class="basarili" style="margin-bottom:12px">⚖️ Adalet skoru (günlük ortalama): <strong>${adalet.skor}/100</strong> — Benzinlik + market toplam saat farkı: ${adalet.toplamFark} saat | Hafta sonu saat farkı: ${adalet.hsFark} | Gece saat farkı: ${adalet.geceFark} | Haftalık izin sayısı farkı: ${adalet.izinFark}</div>
         <div class="istatistik-grid">`;
     for (const [isim, d] of Object.entries(calisma)) {
         const cins = personelBul(isim)?.cinsiyet;
-        const ort = (d.toplam / vardiyalar.length).toFixed(1);
+        const toplamSaat = d.benzinlikSaat + d.marketSaat;
         html += `<div style="background:white; border-radius:16px; padding:12px; border-left:5px solid ${cins === 'E' ? '#2980b9' : '#e84393'}">
             <strong>${cins === 'E' ? '👨' : '👩'} ${esc(isim)}</strong><br>
-            🌙 Gece: ${d.gece} | ☀️ Sabah: ${d.sabah} | 🌆 Akşam: ${d.aksam}<br>
-            📊 Toplam: ${d.toplam} vardiya / ${d.saat} saat (Günlük ort: ${ort})<br>
-            🏖️ Hafta Sonu: ${d.hs} gün
+            🌙 Gece: ${d.gece} | 👩 07–15: ${d.araSabah} | ☀️ Sabah: ${d.sabah} | 👩 15–23: ${d.araAksam} | 🌆 Akşam: ${d.aksam}<br>
+            ⛽ Benzinlik: ${d.benzinlikSaat} saat | 🏪 Market: ${d.marketSaat} saat | 📊 Toplam: ${toplamSaat} saat<br>
+            🌙 Gece yükü: ${d.geceSaat} saat | 🏖️ Haftalık izin: ${d.haftalikIzin} gün | Hafta sonu: ${d.haftaSonuSaat} saat
         </div>`;
     }
     alan.innerHTML = html + `</div>`;
@@ -864,15 +1058,47 @@ async function kuralEkle() {
 
 function excelIndir() {
     if (!vardiyalarGuncel.length) { alert("Önce benzinlik takvimi oluşturun"); return; }
-    const data = [['GÜZELEL PETROL A.Ş. VARDİYA ÇİZELGESİ'], [`Tarih: ${new Date().toLocaleString('tr-TR')}`], [], ['TARİH', 'GECE', 'SABAH', 'AKŞAM', 'İZİNLİLER']];
+    const data = [
+        ['GÜZELEL PETROL A.Ş. VARDİYA ÇİZELGESİ'],
+        [`Tarih: ${new Date().toLocaleString('tr-TR')}`],
+        [],
+        ['TARİH', ...vardiyaTipleri.map(t => `${saatler[t]} ${t === 'araSabah' || t === 'araAksam' ? 'ARA' : t.toLocaleUpperCase('tr-TR')}`),
+            'HAFTALIK İZİN', 'YEDEK', 'YILLIK İZİN']
+    ];
     for (const v of vardiyalarGuncel) {
         const t = new Date(v.tarih);
-        data.push([`${t.toLocaleDateString('tr-TR')} ${GUN_ADLARI[t.getDay()]}`, (v.gece || []).join(', '), (v.sabah || []).join(', '), (v.aksam || []).join(', '), gorunenIzinliler(v).join(', ')]);
+        const dinlenme = gunlukDinlenmeDurumu(v);
+        data.push([`${t.toLocaleDateString('tr-TR')} ${GUN_ADLARI[t.getDay()]}`,
+            ...vardiyaTipleri.map(tip => (v[tip] || []).join(', ')),
+            dinlenme.haftalik || '', dinlenme.yedek.join(', '), dinlenme.yillik.join(', ')
+        ]);
     }
     const ws = XLSX.utils.aoa_to_sheet(data);
-    ws['!cols'] = [{ wch: 28 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 40 }];
+    ws['!cols'] = [{ wch: 28 }, ...vardiyaTipleri.map(() => ({ wch: 24 })),
+        { wch: 22 }, { wch: 30 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Benzinlik");
+    const tarihler = vardiyalarGuncel.map(v => new Date(v.tarih));
+    const marketYuk = marketYukunuHesapla(personeller.map(p => p.isim), tarihler);
+    const rapor = [['PERSONEL', 'BENZİNLİK SAATİ', 'MARKET SAATİ', 'TOPLAM SAAT',
+        'GECE SAATİ', 'HAFTA SONU SAATİ', 'HAFTALIK İZİN GÜNÜ']];
+    for (const p of personeller) {
+        let benzinlikSaat = 0, geceSaat = marketYuk[p.isim].geceSaat;
+        let haftaSonuSaat = marketYuk[p.isim].haftaSonuSaat, haftalikIzin = 0;
+        for (const v of vardiyalarGuncel) {
+            for (const tip of vardiyaTipleri) {
+                if (!(v[tip] || []).includes(p.isim)) continue;
+                const saat = vardiyaSuresi(tip);
+                benzinlikSaat += saat;
+                if (tip === 'gece') geceSaat += saat;
+                if (v.haftasonu) haftaSonuSaat += saat;
+            }
+            if ((v.haftalikIzinli || (v.izinli || [])[0]) === p.isim) haftalikIzin++;
+        }
+        rapor.push([p.isim, benzinlikSaat, marketYuk[p.isim].toplamSaat,
+            benzinlikSaat + marketYuk[p.isim].toplamSaat, geceSaat, haftaSonuSaat, haftalikIzin]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rapor), 'Adalet');
     XLSX.writeFile(wb, `GUZELEL_Benzinlik_${tarihAnahtar(new Date())}.xlsx`);
 }
 
@@ -1446,7 +1672,7 @@ function olaylariBagla() {
     $('ekleBtn').addEventListener('click', personelEkle);
     $('izinEkleBtn').addEventListener('click', izinEkle);
     $('kuralEkleBtn').addEventListener('click', kuralEkle);
-    $('takvimOlusturBtn').addEventListener('click', () => takvimOlustur());
+    $('takvimOlusturBtn').addEventListener('click', () => takvimOlustur(true));
     $('excelIndirBtn').addEventListener('click', excelIndir);
     $('whatsappBtn').addEventListener('click', whatsappPaylas);
     $('duzenleBtn').addEventListener('click', duzenlemeModunuAc);
